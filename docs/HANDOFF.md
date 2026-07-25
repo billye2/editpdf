@@ -12,6 +12,10 @@ type-check + tests + build on every push (`.github/workflows/ci.yml`).
 - **Scanned PDFs with an OCR layer**: click a word → a background-matched
   patch covers the original pixels and crisp replacement text (which becomes
   the new searchable text layer) is drawn on top.
+- **Images (XObject)**: drag to move, click-select + Delete/✕ to remove. Each
+  `Do` of a `/Subtype /Image` XObject is an independent placement (bbox = CTM
+  × unit square). Inline images (`BI…EI`) and images nested in Form XObjects
+  are untouched (round-trip byte-exactly).
 - Save overwrites the opened file (File System Access API) or downloads a copy.
 
 ## Architecture
@@ -66,6 +70,13 @@ geometry. pdf.js only renders and serves as an independent cross-check in tests.
 8. **Verify UI claims with an independent extractor** (pdf.js legacy build in
    tests) **and canvas pixel analysis** — never with the engine's own model
    (that's circular; it hid the missing-spaces bug once).
+9. **Image ops mutate IN PLACE at the `Do`'s op index — never append at
+   stream end.** Text edits append (safe: new text paints last), but an
+   appended image would repaint above everything drawn after it. Move replaces
+   the `Do` with `q cm Do Q` at the same index (`D = M·T(dx,dy)·M⁻¹`, a pure
+   translation in local space, emitted at full precision — `fmtNum`'s 4
+   decimals drift under large CTM scales); delete drops just the `Do` (no
+   graphics-state side effects).
 
 ## Paragraph heuristics (text-model/paragraphs.ts)
 
@@ -79,7 +90,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 39 tests. Two groups auto-skip off-macOS/CI:
+`npx vitest run` — 53 tests. Two groups auto-skip off-macOS/CI:
 - `fonts-cid.test.ts` needs `/System/Library/Fonts/Supplemental/Arial Bold.ttf`.
 - `per-glyph-pdf.test.ts` needs `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
   user document** (gitignored via `test/corpus-*.pdf`; do not commit user PDFs).
@@ -99,8 +110,9 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
 
 ## Known limitations / next work (rough priority)
 
-1. **Form XObject recursion** — text inside XObjects is invisible to the
-   engine (Illustrator/InDesign PDFs). Largest real-world coverage gap.
+1. **Form XObject recursion** — text and images inside Form XObjects are
+   invisible to the engine (Illustrator/InDesign PDFs). Largest real-world
+   coverage gap.
 2. **Performance** — every edit does a full `pdfDoc.save()` + full pdf.js
    reload; page models build eagerly for all pages at load. Fine ≤ ~20 pages.
 3. Viewer is a ~800-line monolith (`main.ts`) with no automated UI tests.

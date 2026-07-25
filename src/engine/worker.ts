@@ -36,6 +36,14 @@ const api: EngineAPI = {
     if (!doc) throw new Error('No document loaded');
     return doc.editOcrWord(pageIndex, runId, newText, patchColor, textColor);
   },
+  async moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome> {
+    if (!doc) throw new Error('No document loaded');
+    return doc.moveImage(pageIndex, imageId, dx, dy);
+  },
+  async deleteImage(pageIndex: number, imageId: string): Promise<EditOutcome> {
+    if (!doc) throw new Error('No document loaded');
+    return doc.deleteImage(pageIndex, imageId);
+  },
   async undo(): Promise<Uint8Array | null> {
     if (!doc) return null;
     return doc.undo();

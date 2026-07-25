@@ -150,6 +150,51 @@ body {
   background: rgba(202, 138, 4, 0.12);
 }
 
+.img-box {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  touch-action: none;
+}
+
+.img-box:hover {
+  border-color: rgba(147, 51, 234, 0.8);
+  background: rgba(147, 51, 234, 0.06);
+}
+
+.img-box.selected {
+  border: 2px solid rgba(147, 51, 234, 0.95);
+}
+
+.img-box.dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  z-index: 5;
+}
+
+.img-delete-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #991b1b;
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.img-delete-btn:hover {
+  background: #b91c1c;
+}
+
 .debug-run {
   position: absolute;
   border: 1px solid rgba(220, 38, 38, 0.6);

@@ -1,7 +1,8 @@
 // Generates sample PDFs into public/samples/ for manual testing:
 //  - sample.pdf      born-digital, multi-paragraph
 //  - scanned.pdf     fake OCR sandwich (gray "scan" + invisible text layer)
-import { PDFDocument, PDFName, StandardFonts, rgb } from 'pdf-lib';
+//  - images.pdf      embedded PNG at two placements (one rotated) + text
+import { PDFDocument, PDFName, StandardFonts, degrees, rgb } from 'pdf-lib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 mkdirSync('public/samples', { recursive: true });
@@ -86,7 +87,26 @@ mkdirSync('public/samples', { recursive: true });
   writeFileSync('public/samples/scanned.pdf', await doc.save({ useObjectStreams: false }));
 }
 
-console.log('Wrote public/samples/sample.pdf and public/samples/scanned.pdf');
+{
+  // 1×1 PNG scaled up per placement — enough to drag/delete visibly
+  const TINY_PNG_B64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([612, 792]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const img = await doc.embedPng(Buffer.from(TINY_PNG_B64, 'base64'));
+  page.drawText('Drag an image to move it; click it, then press Delete to remove it.', {
+    x: 72,
+    y: 740,
+    size: 12,
+    font,
+  });
+  page.drawImage(img, { x: 100, y: 450, width: 200, height: 150 });
+  page.drawImage(img, { x: 380, y: 150, width: 120, height: 120, rotate: degrees(30) });
+  writeFileSync('public/samples/images.pdf', await doc.save({ useObjectStreams: false }));
+}
+
+console.log('Wrote public/samples/sample.pdf, scanned.pdf and images.pdf');
 
 // cid-sample: real embedded TrueType (CID/Type0) font — only when the system
 // font is available; used to verify font preservation on header edits.

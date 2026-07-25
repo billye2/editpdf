@@ -56,10 +56,26 @@ export interface RawRun {
   glyphs: RawGlyph[];
 }
 
+/** An XObject paint (`/Name Do`) with the CTM in effect at that op. The
+ *  interpreter records every top-level Do (image and form alike); filtering by
+ *  resource subtype is the caller's job. */
+export interface DoPlacement {
+  opIndex: number;
+  name: string;
+  ctm: Mat;
+}
+
+export interface InterpretResult {
+  runs: RawRun[];
+  doPlacements: DoPlacement[];
+}
+
 const numArg = (v: PdfVal | undefined, d = 0): number => (v && v.k === 'num' ? v.v : d);
 
-export function interpret(ops: Op[], fonts: Map<string, FontInfo>): RawRun[] {
+export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretResult {
   const runs: RawRun[] = [];
+  const doPlacements: DoPlacement[] = [];
+  let inTextObject = false;
 
   let ctm: Mat = IDENTITY;
   let fillColor: RGB = [0, 0, 0];
@@ -164,8 +180,10 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): RawRun[] {
       case 'BT':
         tm = IDENTITY;
         tlm = IDENTITY;
+        inTextObject = true;
         break;
       case 'ET':
+        inTextObject = false;
         break;
       case 'Tf':
         fontRes = args[0]?.k === 'name' ? args[0].v : fontRes;
@@ -261,9 +279,13 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): RawRun[] {
         }
         break;
       }
+      case 'Do':
+        // Do inside BT…ET is spec-invalid; skip so we never wrap it in q/Q.
+        if (!inTextObject && args[0]?.k === 'name') doPlacements.push({ opIndex, name: args[0].v, ctm });
+        break;
       default:
-        break; // paths, images, XObjects (Do), shading — irrelevant to text model
+        break; // paths, inline images, shading — irrelevant to the model
     }
   }
-  return runs;
+  return { runs, doPlacements };
 }

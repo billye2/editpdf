@@ -16,23 +16,35 @@ import {
 import * as pdfLib from 'pdf-lib';
 import { parseContent, type Op } from './content-stream/parser';
 import { writeContent, mkOp, num, name, str } from './content-stream/writer';
-import { interpret, type RawRun } from './content-stream/interpreter';
+import { interpret, apply, type RawRun, type Mat } from './content-stream/interpreter';
 import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type FontInfo } from './fonts/font-info';
 import { parseTrueType } from './fonts/truetype';
 import { buildParagraphs, buildOcrWords, type ParaMeta, type OcrWordMeta } from './text-model/paragraphs';
 import { planReflow, type FontChoice, type Measurer } from './reflow/reflow';
-import type { EditOutcome, LoadOutcome, PageView, RGB } from '../shared/types';
+import type { EditOutcome, LoadOutcome, PageView, Rect, RGB } from '../shared/types';
 
 const enc = new TextEncoder();
+
+/** One editable image paint: a `Do` of an image XObject, keyed by op index
+ *  (the same resource can be drawn multiple times). */
+interface ImagePlacement {
+  id: string;
+  opIndex: number;
+  resourceName: string;
+  ctm: Mat;
+  bbox: Rect; // page space, y-up; AABB of the CTM-transformed unit square
+}
 
 interface PageState {
   page: PDFPage;
   ops: Op[];
   fonts: Map<string, FontInfo>;
+  imageNames: Set<string>; // /Resources /XObject entries with /Subtype /Image
   runs: RawRun[];
   runIndex: Map<string, RawRun>;
   paras: Map<string, ParaMeta>;
   ocrWords: Map<string, OcrWordMeta>;
+  images: Map<string, ImagePlacement>;
   stdFontRes: Map<string, string>; // StandardFonts value -> resource name in this page
 }
 
@@ -131,6 +143,21 @@ export class EditableDocument {
     return undefined;
   }
 
+  /** Names in /Resources /XObject whose stream is /Subtype /Image. */
+  private pageImageNames(page: PDFPage): Set<string> {
+    const out = new Set<string>();
+    const res = this.pageResources(page);
+    const xobj = this.lookup(res?.get(PDFName.of('XObject')));
+    if (!(xobj instanceof PDFDict)) return out;
+    for (const [key, val] of xobj.entries()) {
+      const s = this.lookup(val);
+      if (s instanceof PDFRawStream && s.dict.get(PDFName.of('Subtype')) === PDFName.of('Image')) {
+        out.add(key.decodeText());
+      }
+    }
+    return out;
+  }
+
   private async buildPages(): Promise<void> {
     this.pages = [];
     const pageList = this.pdfDoc.getPages();
@@ -141,10 +168,12 @@ export class EditableDocument {
         page,
         ops,
         fonts: await parsePageFonts(this.pdfDoc, this.pageResources(page)),
+        imageNames: this.pageImageNames(page),
         runs: [],
         runIndex: new Map(),
         paras: new Map(),
         ocrWords: new Map(),
+        images: new Map(),
         stdFontRes: new Map(),
       };
       this.reinterpret(st);
@@ -153,8 +182,23 @@ export class EditableDocument {
   }
 
   private reinterpret(st: PageState): void {
-    st.runs = interpret(st.ops, st.fonts);
+    const { runs, doPlacements } = interpret(st.ops, st.fonts);
+    st.runs = runs;
     st.runIndex = new Map(st.runs.map((r) => [r.id, r]));
+    st.images = new Map();
+    for (const p of doPlacements) {
+      if (!st.imageNames.has(p.name)) continue; // form XObjects etc.
+      const [a, b, c, d] = p.ctm;
+      if (Math.abs(a * d - b * c) < 1e-9) continue; // degenerate → invisible, not editable
+      const corners = [apply(p.ctm, 0, 0), apply(p.ctm, 1, 0), apply(p.ctm, 0, 1), apply(p.ctm, 1, 1)];
+      const xs = corners.map((c2) => c2[0]);
+      const ys = corners.map((c2) => c2[1]);
+      const x = Math.min(...xs);
+      const y = Math.min(...ys);
+      const bbox: Rect = { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+      const id = `img-${p.opIndex}`;
+      st.images.set(id, { id, opIndex: p.opIndex, resourceName: p.name, ctm: p.ctm, bbox });
+    }
     st.paras = new Map();
     const fontIdentity = (res: string) => {
       const f = st.fonts.get(res);
@@ -199,6 +243,11 @@ export class EditableDocument {
         text: w.text,
         bbox: w.bbox,
         fontSize: w.fontSize,
+      })),
+      images: [...st.images.values()].map((p) => ({
+        id: p.id,
+        bbox: p.bbox,
+        resourceName: p.resourceName,
       })),
       runs: st.runs.map((r) => ({
         id: r.id,
@@ -560,6 +609,67 @@ export class EditableDocument {
           : undefined,
       bytes: await this.save(),
     };
+  }
+
+  /** Validate an image placement id against the current op list. */
+  private imagePlacement(st: PageState, imageId: string): ImagePlacement | null {
+    const pl = st.images.get(imageId);
+    if (!pl) return null;
+    const doOp = st.ops[pl.opIndex];
+    if (doOp?.op !== 'Do' || doOp.args[0]?.k !== 'name' || doOp.args[0].v !== pl.resourceName) return null;
+    return pl;
+  }
+
+  /** Move an image placement by (dx, dy) in page space. The Do is replaced in
+   *  place with `q cm Do Q` — never appended at stream end, which would repaint
+   *  the image above content drawn after it. The inserted cm acts in the local
+   *  space at the Do (effective matrix D×M), so the page delta is pushed
+   *  through the inverse of the CTM's linear part: D = M·T(dx,dy)·M⁻¹, a pure
+   *  translation. */
+  async moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome> {
+    const st = this.pages[pageIndex];
+    const pl = st ? this.imagePlacement(st, imageId) : null;
+    if (!st || !pl) return { status: 'error', message: 'Image not found (the page may have changed).' };
+    const [a, b, c, d] = pl.ctm;
+    const det = a * d - b * c;
+    if (Math.abs(det) < 1e-9) {
+      return { status: 'error', message: 'This image has a degenerate transform and cannot be moved.' };
+    }
+    const dxp = (dx * d - dy * c) / det;
+    const dyp = (dy * a - dx * b) / det;
+    // full precision: fmtNum's 4 decimals get amplified by the image scale
+    // (unit-space delta × CTM), drifting repeated moves by visible fractions.
+    // PDF numbers cannot use exponent notation.
+    const pnum = (v: number): ReturnType<typeof num> => {
+      let raw = String(v);
+      if (raw.includes('e') || raw.includes('E')) raw = v.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+      return { k: 'num', v, raw };
+    };
+
+    this.snapshot(pageIndex);
+    const doOp = st.ops[pl.opIndex];
+    st.ops.splice(
+      pl.opIndex,
+      1,
+      mkOp('q'),
+      mkOp('cm', num(1), num(0), num(0), num(1), pnum(dxp), pnum(dyp)),
+      doOp,
+      mkOp('Q'),
+    );
+    this.rebuildStream(st);
+    return { status: 'ok', bytes: await this.save() };
+  }
+
+  /** Delete an image placement. `Do` has no graphics-state side effects, so
+   *  dropping just the op is safe; surrounding q/cm/Q stay as harmless no-ops. */
+  async deleteImage(pageIndex: number, imageId: string): Promise<EditOutcome> {
+    const st = this.pages[pageIndex];
+    const pl = st ? this.imagePlacement(st, imageId) : null;
+    if (!st || !pl) return { status: 'error', message: 'Image not found (the page may have changed).' };
+    this.snapshot(pageIndex);
+    st.ops.splice(pl.opIndex, 1);
+    this.rebuildStream(st);
+    return { status: 'ok', bytes: await this.save() };
   }
 
   /** Embedded TrueType bytes for styling the edit overlay with the REAL

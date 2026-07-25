@@ -39,6 +39,13 @@ export interface RunView {
   color: RGB;
 }
 
+export interface ImageView {
+  /** Opaque placement id; valid only for the current PageView generation. */
+  id: string;
+  bbox: Rect;
+  resourceName: string;
+}
+
 /** Character range (offsets into the edited text) with an explicit color. */
 export interface ColorRange {
   start: number;
@@ -52,6 +59,7 @@ export interface PageView {
   height: number;
   paragraphs: ParagraphView[];
   ocrWords: OcrWordView[];
+  images: ImageView[];
   runs: RunView[]; // for the debug overlay
   hasVisibleText: boolean;
   hasOcrLayer: boolean;
@@ -84,6 +92,9 @@ export interface EngineAPI {
     colorRanges?: ColorRange[],
   ): Promise<EditOutcome>;
   editOcrWord(pageIndex: number, runId: string, newText: string, patchColor: RGB, textColor?: RGB): Promise<EditOutcome>;
+  /** Move an image placement by (dx, dy) in page space (y-up). */
+  moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome>;
+  deleteImage(pageIndex: number, imageId: string): Promise<EditOutcome>;
   undo(): Promise<Uint8Array | null>;
   canUndo(): Promise<boolean>;
   save(): Promise<Uint8Array>;

@@ -2,7 +2,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as Comlink from 'comlink';
-import type { EngineAPI, PageView, ParagraphView, OcrWordView, RGB, Rect, ColorRange } from '../shared/types';
+import type { EngineAPI, PageView, ParagraphView, OcrWordView, ImageView, RGB, Rect, ColorRange } from '../shared/types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -165,8 +165,19 @@ async function renderPage(index: number): Promise<void> {
 function buildOverlay(index: number): void {
   const ui = pageUIs[index];
   ui.overlay.innerHTML = '';
+  if (selectedImg?.pageIndex === index) selectedImg = null; // boxes are being replaced
   const view = ui.view;
   if (!view) return;
+
+  // image boxes first, so overlapping text boxes (later siblings) win pointer hits
+  for (const img of view.images) {
+    const box = document.createElement('div');
+    box.className = 'img-box';
+    Object.assign(box.style, cssPx(rectToCss(img.bbox, ui.viewport)));
+    box.title = 'Drag to move · click to select, then press Delete to remove';
+    wireImageBox(index, img, box, ui);
+    ui.overlay.append(box);
+  }
 
   for (const para of view.paragraphs) {
     const box = document.createElement('div');
@@ -201,6 +212,112 @@ function buildOverlay(index: number): void {
     }
   }
 }
+
+// ---------- image move/delete ----------
+
+let selectedImg: { pageIndex: number; imageId: string; box: HTMLDivElement } | null = null;
+let activeImgDrag: { cancel: () => void } | null = null;
+
+function deselectImage(): void {
+  if (!selectedImg) return;
+  selectedImg.box.classList.remove('selected');
+  selectedImg.box.querySelector('.img-delete-btn')?.remove();
+  selectedImg = null;
+}
+
+function selectImage(pageIndex: number, img: ImageView, box: HTMLDivElement): void {
+  deselectImage();
+  box.classList.add('selected');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'img-delete-btn';
+  btn.textContent = '✕';
+  btn.title = 'Delete this image';
+  btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deselectImage();
+    void applyEdit(() => engine.deleteImage(pageIndex, img.id), pageIndex);
+  });
+  box.append(btn);
+  selectedImg = { pageIndex, imageId: img.id, box };
+}
+
+function wireImageBox(pageIndex: number, img: ImageView, box: HTMLDivElement, ui: PageUI): void {
+  box.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      box.setPointerCapture(e.pointerId);
+    } catch {
+      // pointer may already be gone (fast click); listeners below still work
+    }
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let dragging = false;
+
+    const reset = () => {
+      box.classList.remove('dragging');
+      box.style.transform = '';
+      box.removeEventListener('pointermove', onMove);
+      box.removeEventListener('pointerup', onUp);
+      activeImgDrag = null;
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0;
+      const dy = ev.clientY - y0;
+      if (!dragging && Math.hypot(dx, dy) > 3) {
+        dragging = true;
+        box.classList.add('dragging');
+        activeImgDrag = { cancel: reset };
+      }
+      if (dragging) box.style.transform = `translate(${dx}px, ${dy}px)`;
+    };
+
+    const onUp = (ev: PointerEvent) => {
+      const wasDragging = dragging;
+      reset();
+      if (!wasDragging) {
+        selectImage(pageIndex, img, box);
+        return;
+      }
+      // convert both endpoints through the viewport so page /Rotate is handled
+      const r = ui.canvas.getBoundingClientRect();
+      const [px0, py0] = ui.viewport.convertToPdfPoint(x0 - r.left, y0 - r.top);
+      const [px1, py1] = ui.viewport.convertToPdfPoint(ev.clientX - r.left, ev.clientY - r.top);
+      const dx = px1 - px0;
+      const dy = py1 - py0;
+      if (Math.hypot(dx, dy) < 0.01) return;
+      void applyEdit(() => engine.moveImage(pageIndex, img.id, dx, dy), pageIndex);
+    };
+
+    box.addEventListener('pointermove', onMove);
+    box.addEventListener('pointerup', onUp);
+  });
+}
+
+const isTypingTarget = (el: Element | null): boolean =>
+  !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && activeImgDrag) {
+    e.preventDefault();
+    activeImgDrag.cancel();
+    return;
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedImg && !isTypingTarget(document.activeElement)) {
+    e.preventDefault();
+    const { pageIndex, imageId } = selectedImg;
+    deselectImage();
+    void applyEdit(() => engine.deleteImage(pageIndex, imageId), pageIndex);
+  }
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (selectedImg && !(e.target instanceof Element && e.target.closest('.img-box'))) deselectImage();
+});
 
 function cssPx(r: { left: number; top: number; width: number; height: number }): Partial<CSSStyleDeclaration> {
   return {

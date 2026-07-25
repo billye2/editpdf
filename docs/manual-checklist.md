@@ -30,6 +30,16 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Long paste grows the edit box; nothing clips; hint follows below
 - [ ] Per-glyph PDF (browser print-to-PDF): spaces intact in the edit box and after edits
 
+## Images (images.pdf)
+- [ ] Hover an image → purple outline; drag it → box follows the pointer, lands where dropped after re-render
+- [ ] Drag the rotated image → its center moves by exactly the drag distance
+- [ ] Escape mid-drag cancels; image stays put
+- [ ] Click an image → selected state with ✕ button; ✕ deletes it; Delete/Backspace key also deletes
+- [ ] Delete/Backspace while a text edit box is focused does NOT delete the selected image
+- [ ] Undo restores a moved image to its old spot and restores a deleted image
+- [ ] Move an image so it overlaps text drawn after it → the text still paints ON TOP (z-order preserved)
+- [ ] Saved copy opens in Preview/Chrome with the image moved/removed as expected
+
 ## General
 - [ ] Zoom in/out re-renders pages and overlays stay aligned
 - [ ] Debug boxes: red boxes on visible runs, green on OCR layer
