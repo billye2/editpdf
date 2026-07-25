@@ -1,0 +1,26 @@
+{
+  "name": "editpdf",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:samples": "node scripts/gen-samples.mjs"
+  },
+  "dependencies": {
+    "comlink": "^4.4.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.3.5",
+    "vitest": "^3.1.1"
+  }
+}

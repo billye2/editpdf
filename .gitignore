@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.screenshots/
+.lavish/
+
+# generated sample PDFs (npm run gen:samples)
+public/samples/
+
+# local-only test corpus (user documents — never publish)
+test/corpus-*.pdf
+.DS_Store

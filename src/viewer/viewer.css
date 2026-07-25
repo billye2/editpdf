@@ -1,0 +1,256 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #525659;
+  color: #222;
+}
+
+#toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #323639;
+  color: #eee;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+#brand {
+  font-weight: 700;
+  margin-right: 10px;
+  letter-spacing: 0.4px;
+}
+
+#toolbar button {
+  background: #4a4f54;
+  color: #eee;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#toolbar button:hover:not(:disabled) {
+  background: #5d646b;
+}
+
+#toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#toolbar .sep {
+  width: 1px;
+  height: 20px;
+  background: #5a5f64;
+}
+
+#zoom-label {
+  font-size: 12px;
+  min-width: 42px;
+  text-align: center;
+}
+
+#debug-wrap {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #bbb;
+}
+
+#file-name {
+  margin-left: auto;
+  font-size: 12px;
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+#banner {
+  background: #b45309;
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+#pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 12px 80px;
+  gap: 18px;
+}
+
+#dropzone {
+  margin-top: 10vh;
+  border: 2px dashed #8a8f94;
+  border-radius: 12px;
+  color: #d7dadd;
+  padding: 60px 80px;
+  text-align: center;
+}
+
+#dropzone h1 {
+  margin: 0 0 8px;
+}
+
+#dropzone .hint {
+  font-size: 13px;
+  color: #aab0b5;
+  max-width: 420px;
+}
+
+.page {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.page canvas {
+  display: block;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.para-box,
+.ocr-box {
+  position: absolute;
+  pointer-events: auto;
+  cursor: text;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+.para-box:hover {
+  border-color: rgba(37, 99, 235, 0.8);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.ocr-box {
+  border: 1px dashed rgba(202, 138, 4, 0.55);
+}
+
+.ocr-box:hover {
+  border-color: rgba(202, 138, 4, 1);
+  background: rgba(202, 138, 4, 0.12);
+}
+
+.debug-run {
+  position: absolute;
+  border: 1px solid rgba(220, 38, 38, 0.6);
+  pointer-events: none;
+}
+
+.debug-run.invisible-run {
+  border-color: rgba(5, 150, 105, 0.6);
+}
+
+.edit-box {
+  position: absolute;
+  z-index: 10;
+  border: 2px solid #2563eb;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  padding: 2px 4px;
+  margin: 0;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  color: #111;
+}
+
+.edit-hint {
+  position: absolute;
+  z-index: 11;
+  background: #1f2937;
+  color: #e5e7eb;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.edit-rich {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  cursor: text;
+  overflow: visible;
+}
+
+.color-row {
+  position: absolute;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: #1f2937;
+  padding: 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch.selected {
+  border-color: #93c5fd;
+}
+
+.color-custom {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.color-custom.selected {
+  border-color: #93c5fd;
+}
+
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #f3f4f6;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 50;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-width: 70vw;
+}
+
+#toast.warn {
+  background: #92400e;
+}
+
+#toast.error {
+  background: #991b1b;
+}

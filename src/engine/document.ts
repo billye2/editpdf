@@ -1,0 +1,596 @@
+// EditableDocument: owns the pdf-lib document, the per-page op lists and text
+// models, and applies edits (paragraph reflow, OCR patch-over) by rewriting
+// page content streams.
+
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFFont,
+  PDFName,
+  PDFPage,
+  PDFRawStream,
+  PDFRef,
+  StandardFonts,
+} from 'pdf-lib';
+import * as pdfLib from 'pdf-lib';
+import { parseContent, type Op } from './content-stream/parser';
+import { writeContent, mkOp, num, name, str } from './content-stream/writer';
+import { interpret, type RawRun } from './content-stream/interpreter';
+import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type FontInfo } from './fonts/font-info';
+import { parseTrueType } from './fonts/truetype';
+import { buildParagraphs, buildOcrWords, type ParaMeta, type OcrWordMeta } from './text-model/paragraphs';
+import { planReflow, type FontChoice, type Measurer } from './reflow/reflow';
+import type { EditOutcome, LoadOutcome, PageView, RGB } from '../shared/types';
+
+const enc = new TextEncoder();
+
+interface PageState {
+  page: PDFPage;
+  ops: Op[];
+  fonts: Map<string, FontInfo>;
+  runs: RawRun[];
+  runIndex: Map<string, RawRun>;
+  paras: Map<string, ParaMeta>;
+  ocrWords: Map<string, OcrWordMeta>;
+  stdFontRes: Map<string, string>; // StandardFonts value -> resource name in this page
+}
+
+interface UndoEntry {
+  pageIndex: number;
+  ops: Op[];
+}
+
+function hexToBytes(hexStr: string): Uint8Array {
+  const clean = hexStr.replace(/[<>\s]/g, '');
+  const out = new Uint8Array(Math.floor(clean.length / 2));
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+export class EditableDocument {
+  private pdfDoc!: PDFDocument;
+  private pages: PageState[] = [];
+  private undoStack: UndoEntry[] = [];
+  private stdFonts = new Map<string, PDFFont>();
+  private nextResIdx = 1;
+
+  static async load(bytes: Uint8Array): Promise<{ doc: EditableDocument | null; outcome: LoadOutcome }> {
+    const doc = new EditableDocument();
+    try {
+      doc.pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const encrypted = /encrypt/i.test(msg);
+      return { doc: null, outcome: { ok: false, pageCount: 0, encrypted, error: msg } };
+    }
+    try {
+      await doc.buildPages();
+    } catch (e) {
+      return {
+        doc: null,
+        outcome: { ok: false, pageCount: 0, encrypted: false, error: e instanceof Error ? e.message : String(e) },
+      };
+    }
+    return { doc, outcome: { ok: true, pageCount: doc.pages.length, encrypted: false } };
+  }
+
+  private ctx() {
+    return this.pdfDoc.context;
+  }
+
+  private lookup(v: unknown): unknown {
+    return v instanceof PDFRef ? this.ctx().lookup(v) : v;
+  }
+
+  private getContentBytes(page: PDFPage): Uint8Array {
+    const contents = this.lookup(page.node.get(PDFName.of('Contents')));
+    const streams: Uint8Array[] = [];
+    const pushStream = (v: unknown) => {
+      const s = this.lookup(v);
+      if (s instanceof PDFRawStream) {
+        const dec = (pdfLib as unknown as { decodePDFRawStream?: (x: PDFRawStream) => { decode(): Uint8Array } })
+          .decodePDFRawStream;
+        streams.push(dec ? dec(s).decode() : s.getContents());
+      }
+    };
+    if (contents instanceof PDFArray) {
+      for (let i = 0; i < contents.size(); i++) pushStream(contents.get(i));
+    } else {
+      pushStream(contents);
+    }
+    // merge, isolating each stream and the whole page in q/Q so appended edit
+    // blocks always start from a pristine graphics state
+    const parts: Uint8Array[] = [enc.encode('q\n')];
+    for (const s of streams) {
+      parts.push(s, enc.encode('\n'));
+    }
+    parts.push(enc.encode('Q\n'));
+    let total = 0;
+    for (const p of parts) total += p.length;
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const p of parts) {
+      out.set(p, off);
+      off += p.length;
+    }
+    return out;
+  }
+
+  private pageResources(page: PDFPage): PDFDict | undefined {
+    const direct = this.lookup(page.node.get(PDFName.of('Resources')));
+    if (direct instanceof PDFDict) return direct;
+    // inherited
+    const node = page.node as unknown as { Resources?: () => PDFDict | undefined };
+    try {
+      const r = node.Resources?.();
+      if (r instanceof PDFDict) return r;
+    } catch {
+      // fall through
+    }
+    return undefined;
+  }
+
+  private async buildPages(): Promise<void> {
+    this.pages = [];
+    const pageList = this.pdfDoc.getPages();
+    for (const page of pageList) {
+      const bytes = this.getContentBytes(page);
+      const ops = parseContent(bytes);
+      const st: PageState = {
+        page,
+        ops,
+        fonts: await parsePageFonts(this.pdfDoc, this.pageResources(page)),
+        runs: [],
+        runIndex: new Map(),
+        paras: new Map(),
+        ocrWords: new Map(),
+        stdFontRes: new Map(),
+      };
+      this.reinterpret(st);
+      this.pages.push(st);
+    }
+  }
+
+  private reinterpret(st: PageState): void {
+    st.runs = interpret(st.ops, st.fonts);
+    st.runIndex = new Map(st.runs.map((r) => [r.id, r]));
+    st.paras = new Map();
+    const fontIdentity = (res: string) => {
+      const f = st.fonts.get(res);
+      if (!f || !f.baseFont) return res;
+      return f.baseFont.replace(/^[A-Z]{6}\+/, '');
+    };
+    for (const p of buildParagraphs(st.runs, fontIdentity)) {
+      const f = st.fonts.get(p.fontRes);
+      if (f) p.style = f.style;
+      st.paras.set(p.id, p);
+    }
+    st.ocrWords = new Map(buildOcrWords(st.runs).map((w) => [w.runId, w]));
+  }
+
+  pageCount(): number {
+    return this.pages.length;
+  }
+
+  getPageView(index: number): PageView {
+    const st = this.pages[index];
+    const { width, height } = st.page.getSize();
+    return {
+      index,
+      width,
+      height,
+      paragraphs: [...st.paras.values()].map((p) => ({
+        id: p.id,
+        bbox: p.bbox,
+        text: p.text,
+        fontSize: p.fontSize,
+        leading: p.leading,
+        fontKind: p.style.kind,
+        bold: p.style.bold,
+        italic: p.style.italic,
+        align: p.align,
+        color: p.color,
+        lineCount: p.lines.length,
+        fontRes: p.fontRes,
+      })),
+      ocrWords: [...st.ocrWords.values()].map((w) => ({
+        runId: w.runId,
+        text: w.text,
+        bbox: w.bbox,
+        fontSize: w.fontSize,
+      })),
+      runs: st.runs.map((r) => ({
+        id: r.id,
+        text: r.text,
+        bbox: {
+          x: r.baseline.x,
+          y: r.baseline.y + r.descent,
+          w: r.endX - r.baseline.x,
+          h: r.ascent - r.descent,
+        },
+        renderMode: r.renderMode,
+        color: r.color,
+      })),
+      hasVisibleText: st.runs.some((r) => r.renderMode !== 3 && r.text.trim().length > 0),
+      hasOcrLayer: st.runs.some((r) => r.renderMode === 3 && r.text.trim().length > 0),
+    };
+  }
+
+  /** Embed (once) the standard font matched to original font `forRes`, return its resource name on the page. */
+  private async ensureStdFont(st: PageState, forRes: string): Promise<{ resName: string; font: PDFFont }> {
+    const orig = st.fonts.get(forRes);
+    const style = orig?.style ?? styleFromName(forRes);
+    const std = stdFontFor(style);
+    let font = this.stdFonts.get(std);
+    if (!font) {
+      font = await this.pdfDoc.embedFont(std);
+      this.stdFonts.set(std, font);
+    }
+    let resName = st.stdFontRes.get(std);
+    if (!resName) {
+      resName = `EPDF${this.nextResIdx++}`;
+      // ensure a direct, page-level Resources dict we can safely extend
+      let res = this.lookup(st.page.node.get(PDFName.of('Resources')));
+      if (!(res instanceof PDFDict)) {
+        const inherited = this.pageResources(st.page);
+        const clone = this.ctx().obj({}) as PDFDict;
+        if (inherited) for (const [k, v] of inherited.entries()) clone.set(k, v);
+        st.page.node.set(PDFName.of('Resources'), clone);
+        res = clone;
+      }
+      let fontDict = this.lookup((res as PDFDict).get(PDFName.of('Font')));
+      if (!(fontDict instanceof PDFDict)) {
+        fontDict = this.ctx().obj({}) as PDFDict;
+        (res as PDFDict).set(PDFName.of('Font'), fontDict as PDFDict);
+      }
+      (fontDict as PDFDict).set(PDFName.of(resName), font.ref);
+      st.stdFontRes.set(std, resName);
+    }
+    return { resName, font };
+  }
+
+  private stdEncode(font: PDFFont, text: string): Uint8Array | null {
+    try {
+      return hexToBytes(font.encodeText(text).toString());
+    } catch {
+      return null;
+    }
+  }
+
+  private stdWidth(font: PDFFont, text: string, size: number): number | null {
+    try {
+      return font.widthOfTextAtSize(text, size);
+    } catch {
+      return null;
+    }
+  }
+
+  private async measurerFor(st: PageState): Promise<Measurer> {
+    // pre-resolve std fonts lazily per original res
+    const stdCache = new Map<string, PDFFont>();
+    const getStd = (forRes: string): PDFFont => {
+      let f = stdCache.get(forRes);
+      if (!f) {
+        const style = st.fonts.get(forRes)?.style ?? styleFromName(forRes);
+        const stdName = stdFontFor(style);
+        f = this.stdFonts.get(stdName)!;
+        stdCache.set(forRes, f);
+      }
+      return f;
+    };
+    // make sure all potentially needed std fonts exist (embed is async, measurement is sync)
+    const styles = new Set<string>();
+    for (const f of st.fonts.values()) styles.add(stdFontFor(f.style));
+    styles.add(StandardFonts.Helvetica);
+    for (const s of styles) {
+      if (!this.stdFonts.has(s)) this.stdFonts.set(s, await this.pdfDoc.embedFont(s as StandardFonts));
+    }
+    return {
+      measureOrig: (res, text, size) => st.fonts.get(res)?.widthOfText(text, size) ?? null,
+      measureStd: (forRes, text, size) => {
+        const style = st.fonts.get(forRes)?.style ?? styleFromName(forRes);
+        const stdName = stdFontFor(style);
+        const f = this.stdFonts.get(stdName) ?? getStd(forRes);
+        return this.stdWidth(f, text, size);
+      },
+    };
+  }
+
+  /** Remove the visual output of the given show-ops while preserving their positioning side effects. */
+  private removeShowOps(ops: Op[], opIndices: Set<number>): Op[] {
+    const out: Op[] = [];
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!opIndices.has(i)) {
+        out.push(op);
+        continue;
+      }
+      if (op.op === 'Tj' || op.op === 'TJ') continue; // no positioning side effects on Tlm
+      if (op.op === "'") {
+        out.push(mkOp("'", str(new Uint8Array(0))));
+        continue;
+      }
+      if (op.op === '"') {
+        out.push(mkOp('"', op.args[0] ?? num(0), op.args[1] ?? num(0), str(new Uint8Array(0))));
+        continue;
+      }
+      out.push(op);
+    }
+    return out;
+  }
+
+  private rebuildStream(st: PageState): void {
+    const bytes = writeContent(st.ops);
+    const stream = this.ctx().flateStream(bytes);
+    const ref = this.ctx().register(stream);
+    st.page.node.set(PDFName.of('Contents'), ref);
+    this.reinterpret(st);
+  }
+
+  /** Write newly minted code→unicode/width mappings into the PDF's ToUnicode
+   *  CMap and CID W array, so search/copy/extraction see the extended codes. */
+  private flushFontExtensions(st: PageState): void {
+    const ctx = this.ctx();
+    for (const f of st.fonts.values()) {
+      if (!f.pendingExt.size || !f.dicts) continue;
+      const cmapText = generateToUnicodeCMap(f.toUnicodeMap);
+      const stream = ctx.flateStream(cmapText);
+      f.dicts.fontDict.set(PDFName.of('ToUnicode'), ctx.register(stream));
+      if (f.dicts.cidFont) {
+        const wVal = this.lookup(f.dicts.cidFont.get(PDFName.of('W')));
+        const newW = ctx.obj([]) as PDFArray;
+        if (wVal instanceof PDFArray) {
+          for (let i = 0; i < wVal.size(); i++) newW.push(wVal.get(i));
+        }
+        for (const [cid, e] of f.pendingExt) {
+          newW.push(ctx.obj(cid));
+          newW.push(ctx.obj([e.w1000]));
+        }
+        f.dicts.cidFont.set(PDFName.of('W'), newW);
+      }
+      f.pendingExt.clear();
+    }
+  }
+
+  private snapshot(pageIndex: number): void {
+    this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex].ops] });
+    if (this.undoStack.length > 50) this.undoStack.shift();
+  }
+
+  async editParagraph(
+    pageIndex: number,
+    paragraphId: string,
+    newText: string,
+    color?: RGB,
+    colorRanges?: import('../shared/types').ColorRange[],
+  ): Promise<EditOutcome> {
+    const st = this.pages[pageIndex];
+    const para = st?.paras.get(paragraphId);
+    if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+    const sameColor = !color || color.every((c, i) => Math.abs(c - para.color[i]) < 1e-3);
+    if (newText.trim() === para.text.trim() && sameColor && !colorRanges?.length) {
+      return { status: 'ok', bytes: await this.save() };
+    }
+
+    const measurer = await this.measurerFor(st);
+    // Single-line paragraphs (headers, captions) may grow toward the page's
+    // text-area right edge instead of being trapped in their own tight bbox.
+    const opts: { maxWidth?: number; baseColor?: RGB; colorRanges?: import('../shared/types').ColorRange[] } = {
+      baseColor: color,
+      colorRanges,
+    };
+    if (para.lines.length === 1) {
+      const pageRight = Math.max(...[...st.paras.values()].map((pp) => pp.bbox.x + pp.bbox.w));
+      if (pageRight > para.bbox.x + para.bbox.w) opts.maxWidth = pageRight - para.bbox.x;
+    }
+    const plan = planReflow(para, newText, measurer, opts);
+    if ('error' in plan) return { status: 'error', message: plan.error };
+
+    // Resolve each placed word to a resource name + encoder, then group
+    // consecutive same-line/same-font words into a single Tj containing REAL
+    // space glyphs. Absolute per-word positioning without space characters
+    // renders fine but destroys copy/paste and search — extractors see the
+    // words run together.
+    interface RWord {
+      text: string;
+      x: number;
+      y: number;
+      size: number;
+      color: RGB;
+      resName: string;
+      encode: (t: string) => Uint8Array | null;
+    }
+    const rwords: RWord[] = [];
+    for (const w of plan.placed) {
+      if (w.font.t === 'orig') {
+        const f = st.fonts.get(w.font.res);
+        if (!f) return { status: 'error', message: `Font ${w.font.res} missing — edit cancelled.` };
+        rwords.push({
+          text: w.text,
+          x: w.x,
+          y: w.y,
+          size: w.size,
+          color: w.color,
+          resName: w.font.res,
+          encode: (t) => f.encode(t),
+        });
+      } else {
+        const { resName, font } = await this.ensureStdFont(st, w.font.forRes);
+        rwords.push({
+          text: w.text,
+          x: w.x,
+          y: w.y,
+          size: w.size,
+          color: w.color,
+          resName,
+          encode: (t) => this.stdEncode(font, t),
+        });
+      }
+    }
+
+    const sameRgb = (a: RGB, b: RGB) => a.every((v, i) => Math.abs(v - b[i]) < 1e-3);
+    interface Group {
+      resName: string;
+      size: number;
+      x: number;
+      y: number;
+      color: RGB;
+      words: RWord[];
+    }
+    const groups: Group[] = [];
+    for (const w of rwords) {
+      const g = groups[groups.length - 1];
+      if (
+        g &&
+        g.resName === w.resName &&
+        Math.abs(g.size - w.size) < 1e-6 &&
+        Math.abs(g.y - w.y) < 1e-6 &&
+        sameRgb(g.color, w.color) &&
+        w.encode(' ') !== null
+      ) {
+        g.words.push(w);
+      } else {
+        groups.push({ resName: w.resName, size: w.size, x: w.x, y: w.y, color: w.color, words: [w] });
+      }
+    }
+
+    const blocks: Op[] = [mkOp('q'), mkOp('BT'), mkOp('Tr', num(0))];
+    let lastFontKey = '';
+    let lastColor: RGB | null = null;
+    for (const g of groups) {
+      const joined = g.words.map((w) => w.text).join(' ');
+      const bytes = g.words[0].encode(joined);
+      if (!bytes) return { status: 'error', message: `Could not encode "${joined}" — edit cancelled.` };
+      const fontKey = `${g.resName}@${g.size.toFixed(3)}`;
+      if (fontKey !== lastFontKey) {
+        blocks.push(mkOp('Tf', name(g.resName), num(g.size)));
+        lastFontKey = fontKey;
+      }
+      if (!lastColor || !sameRgb(lastColor, g.color)) {
+        blocks.push(mkOp('rg', num(g.color[0]), num(g.color[1]), num(g.color[2])));
+        lastColor = g.color;
+      }
+      blocks.push(mkOp('Tm', num(1), num(0), num(0), num(1), num(g.x), num(g.y)));
+      blocks.push(mkOp('Tj', str(bytes)));
+    }
+    blocks.push(mkOp('ET'), mkOp('Q'));
+
+    this.snapshot(pageIndex);
+    st.ops = this.removeShowOps(st.ops, para.opIndices);
+    st.ops.push(...blocks);
+    this.flushFontExtensions(st);
+    this.rebuildStream(st);
+
+    const msgs: string[] = [];
+    if (plan.status === 'overflow-flagged')
+      msgs.push('The new text does not fit the paragraph box even at 90% size — it may overlap content below.');
+    else if (plan.status === 'overflow-shrunk')
+      msgs.push(`Text was shrunk to ${Math.round(plan.scale * 100)}% to fit the paragraph.`);
+    if (plan.usedFallback)
+      msgs.push(
+        "Some characters aren't available in the document's embedded (subset) font — a similar standard font was substituted for those words.",
+      );
+
+    return {
+      status: plan.status,
+      usedFallback: plan.usedFallback,
+      message: msgs.length ? msgs.join(' ') : undefined,
+      bytes: await this.save(),
+    };
+  }
+
+  async editOcrWord(
+    pageIndex: number,
+    runId: string,
+    newText: string,
+    patchColor: RGB,
+    textColor?: RGB,
+  ): Promise<EditOutcome> {
+    const st = this.pages[pageIndex];
+    const word = st?.ocrWords.get(runId);
+    const run = st?.runIndex.get(runId);
+    if (!st || !word || !run) return { status: 'error', message: 'Word not found (the page may have changed).' };
+    const text = newText.trim();
+    if (!text) return { status: 'error', message: 'Replacement text cannot be empty.' };
+
+    const { resName, font } = await this.ensureStdFont(st, run.fontRes);
+    const bytes = this.stdEncode(font, text);
+    if (!bytes) {
+      return { status: 'error', message: 'The replacement text contains characters the fallback font cannot render.' };
+    }
+
+    // size: fit height first, then shrink (floor 70%) to fit width
+    let size = Math.max(4, word.bbox.h * 0.92);
+    let w = this.stdWidth(font, text, size) ?? size * text.length * 0.5;
+    let status: EditOutcome['status'] = 'ok';
+    if (w > word.bbox.w) {
+      const shrunk = Math.max(size * 0.7, (size * word.bbox.w) / w);
+      size = shrunk;
+      w = this.stdWidth(font, text, size) ?? w;
+    }
+    const patchW = Math.max(word.bbox.w, w) + 2;
+    if (w > word.bbox.w * 1.02) status = 'overflow-flagged';
+
+    this.snapshot(pageIndex);
+    st.ops = this.removeShowOps(st.ops, new Set([run.opIndex]));
+    st.ops.push(
+      mkOp('q'),
+      mkOp('rg', num(patchColor[0]), num(patchColor[1]), num(patchColor[2])),
+      mkOp('re', num(word.bbox.x - 1), num(word.bbox.y - 1), num(patchW), num(word.bbox.h + 2)),
+      mkOp('f'),
+      mkOp('Q'),
+      mkOp('q'),
+      mkOp('BT'),
+      mkOp('Tr', num(0)),
+      mkOp('rg', num(textColor?.[0] ?? 0.05), num(textColor?.[1] ?? 0.05), num(textColor?.[2] ?? 0.05)),
+      mkOp('Tf', name(resName), num(size)),
+      mkOp('Tm', num(1), num(0), num(0), num(1), num(word.baseline.x), num(word.baseline.y)),
+      mkOp('Tj', str(bytes)),
+      mkOp('ET'),
+      mkOp('Q'),
+    );
+    this.rebuildStream(st);
+
+    return {
+      status,
+      message:
+        status === 'overflow-flagged'
+          ? 'The replacement is wider than the original word — the patch may cover neighboring content.'
+          : undefined,
+      bytes: await this.save(),
+    };
+  }
+
+  /** Embedded TrueType bytes for styling the edit overlay with the REAL
+   *  document font — only when the browser could actually use it (the font
+   *  program needs a cmap that covers the text being edited). */
+  getEmbeddedFontBytes(pageIndex: number, fontRes: string, sample: string): Uint8Array | null {
+    const f = this.pages[pageIndex]?.fonts.get(fontRes);
+    if (!f?.fontFile2) return null;
+    const tt = parseTrueType(f.fontFile2);
+    if (!tt) return null; // no usable cmap → browser would render tofu
+    const chars = [...new Set(sample.replace(/\s/g, ''))].slice(0, 40);
+    if (!chars.length) return null;
+    const covered = chars.filter((ch) => tt.gidFor(ch.codePointAt(0)!) > 0).length;
+    if (covered / chars.length < 0.9) return null;
+    return f.fontFile2;
+  }
+
+  async undo(): Promise<Uint8Array | null> {
+    const entry = this.undoStack.pop();
+    if (!entry) return null;
+    const st = this.pages[entry.pageIndex];
+    st.ops = entry.ops;
+    this.rebuildStream(st);
+    return this.save();
+  }
+
+  canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  async save(): Promise<Uint8Array> {
+    return this.pdfDoc.save({ useObjectStreams: false });
+  }
+}
