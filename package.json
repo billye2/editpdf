@@ -1,14 +1,15 @@
 {
   "name": "editpdf",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.5.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:samples": "node scripts/gen-samples.mjs"
+    "gen:samples": "node scripts/gen-samples.mjs",
+    "bump": "node scripts/bump-version.mjs"
   },
   "dependencies": {
     "comlink": "^4.4.2",

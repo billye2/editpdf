@@ -1,16 +1,30 @@
 {
   "manifest_version": 3,
   "name": "EditPDF",
-  "version": "0.1.0",
+  "version": "1.5.5",
   "description": "Edit the actual text of PDFs — including OCR'd scans — entirely in your browser.",
-  "action": { "default_title": "Open EditPDF" },
-  "background": { "service_worker": "background.js", "type": "module" },
-  "permissions": ["declarativeNetRequest"],
-  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Open EditPDF"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "web_accessible_resources": [
     {
-      "resources": ["viewer.html", "assets/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "viewer.html",
+        "assets/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
