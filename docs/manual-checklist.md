@@ -19,6 +19,17 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Saved copy: old word not searchable, new word searchable
 - [ ] Replacement longer than original → warning toast about patch width
 
+## Colors
+- [ ] Edit a paragraph, pick red with no selection → whole paragraph red after commit
+- [ ] Select one word, pick a color → only that word changes; neighbors keep theirs
+- [ ] Color-only change (no text edit) applies and undoes
+- [ ] OCR patch with a custom ink color renders in that color
+
+## Fonts & editors
+- [ ] Edit box shows the document's embedded font (cid-fonts.pdf) — no Arial flash on commit
+- [ ] Long paste grows the edit box; nothing clips; hint follows below
+- [ ] Per-glyph PDF (browser print-to-PDF): spaces intact in the edit box and after edits
+
 ## General
 - [ ] Zoom in/out re-renders pages and overlays stay aligned
 - [ ] Debug boxes: red boxes on visible runs, green on OCR layer

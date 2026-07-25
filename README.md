@@ -2,6 +2,8 @@
 
 A Chrome extension (Manifest V3) that edits the **actual text** of a PDF — including scanned PDFs that have an OCR text layer — entirely client-side. When an edit changes text length (e.g. 3 characters replace 1), the paragraph **reflows** inside its original bounding box.
 
+Maintainers: start with **[docs/HANDOFF.md](docs/HANDOFF.md)** — architecture, invariants, and release process.
+
 ## How it works
 
 - **Born-digital PDFs** — the page's content stream is parsed into operators, a graphics-state interpreter reconstructs every text run's exact position, runs are clustered into words → lines → paragraphs, and edits regenerate the paragraph's text-showing operators with greedy line-wrapping inside the original paragraph box. Unedited words keep their original font; new words inherit a neighbor's font, falling back to an embedded standard font (Helvetica/Times/Courier family, style-matched) when the original subset font can't encode a character.
@@ -15,9 +17,21 @@ Stack: [pdf.js](https://mozilla.github.io/pdf.js/) for rendering, a custom conte
 ```sh
 npm install
 npm test              # engine test suite (round-trip, geometry, reflow, e2e edits)
-npm run gen:samples   # writes public/samples/{sample,scanned}.pdf
+npm run gen:samples   # writes public/samples/{sample,scanned,cid-fonts}.pdf
 npm run dev           # vite dev server — open /viewer.html?file=/samples/sample.pdf
 npm run build         # builds the extension into dist/
+```
+
+CI (GitHub Actions) runs type-check, tests, and the extension build on every push. Tests that need macOS system fonts or local-only corpus PDFs skip automatically elsewhere.
+
+## Versioning & releases
+
+Versions use **decimal rollover**, not semver: `1.5.9 → 1.6.0`, `1.9.9 → 2.0.0`.
+
+```sh
+npm run bump                  # next version in package.json + manifest
+npm run release               # checks → bump → build → commit → tag → push
+npm run release -- --dry-run  # run the checks, touch nothing
 ```
 
 ## Install the extension
@@ -30,8 +44,9 @@ npm run build         # builds the extension into dist/
 ## Using it
 
 - **Open** a PDF (file picker, drag-and-drop, or `.pdf` URL interception).
-- Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit.
-- On scanned+OCR pages, words show **dashed amber boxes**; click one to patch-edit it.
+- Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text.
+- **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
+- On scanned+OCR pages, words show **dashed amber boxes**; click one to patch-edit it (with its own ink-color picker).
 - **Save** overwrites the opened file (only when opened via the file picker); **Download** always works. **Undo** reverts edits one at a time.
 - **Debug boxes** in the toolbar draws every detected text run (green = invisible OCR layer).
 
