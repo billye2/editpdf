@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PDF Edna – PDF Text Editing Made Easy",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "PDF text editing made easy — edit the actual text of PDFs, including OCR'd scans, entirely in your browser.",
   "action": {
     "default_title": "Open PDF Edna"
@@ -10,12 +10,21 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["declarativeNetRequest"],
-  "optional_host_permissions": ["<all_urls>"],
+  "permissions": [
+    "declarativeNetRequest"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "web_accessible_resources": [
     {
-      "resources": ["viewer.html", "assets/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "viewer.html",
+        "assets/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
