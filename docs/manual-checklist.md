@@ -13,6 +13,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Save As → open the copy in Chrome's native viewer, macOS Preview, AND Acrobat Reader — text renders, no errors
 - [ ] Search (⌘F in Preview/Acrobat) finds the edited word in the saved copy
 - [ ] Type a character not in the doc font (e.g. `→`) → clear error toast, no corrupt output
+- [ ] In a bold/italic/serif headline with a pruned subset font, type letters outside the subset → substituted words match the surrounding weight, slant, and serif style
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
 
 ## Scanned + OCR (scanned.pdf)

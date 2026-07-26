@@ -1,8 +1,10 @@
 # EditPDF — Maintainer Handoff
 
-Chrome extension (MV3) for true PDF text editing, fully client-side. Current
-version **1.5.5**. Repo: `github.com/billye2/editpdf` (private). CI runs
-type-check + tests + build on every push (`.github/workflows/ci.yml`).
+Chrome extension (MV3) for true PDF text and image editing, fully
+client-side. Current version **1.5.7**. Repo: `github.com/billye2/editpdf`
+(private). CI runs type-check + tests + build on every push
+(`.github/workflows/ci.yml`). `npm run release` bumps, builds, zips the
+Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
 
 ## What it does
 
@@ -101,10 +103,13 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 53 tests. Two groups auto-skip off-macOS/CI:
+`npx vitest run` — 75 tests. Some groups auto-skip off-macOS/CI:
 - `fonts-cid.test.ts` needs `/System/Library/Fonts/Supplemental/Arial Bold.ttf`.
-- `per-glyph-pdf.test.ts` needs `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
-  user document** (gitignored via `test/corpus-*.pdf`; do not commit user PDFs).
+- `per-glyph-pdf.test.ts`, parts of `overflow.test.ts`, and
+  `fallback-style.test.ts` need `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
+  user document** (gitignored via `test/corpus-*.pdf` and `test/*.pdf`; do not
+  commit user PDFs).
+- `persist.test.ts` runs against `fake-indexeddb` (dev dependency).
 
 Sample PDFs for manual testing: `npm run gen:samples` → `public/samples/`
 (born-digital, fake OCR sandwich, real embedded CID fonts). Manual test script
