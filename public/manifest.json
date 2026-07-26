@@ -10,21 +10,12 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": [
-    "declarativeNetRequest"
-  ],
-  "optional_host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["declarativeNetRequest"],
+  "optional_host_permissions": ["<all_urls>"],
   "web_accessible_resources": [
     {
-      "resources": [
-        "viewer.html",
-        "assets/*"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "resources": ["viewer.html", "assets/*"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
