@@ -3,6 +3,18 @@ import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as Comlink from 'comlink';
 import type { EngineAPI, PageView, ParagraphView, OcrWordView, ImageView, RGB, Rect, ColorRange } from '../shared/types';
+import {
+  saveSession,
+  loadSession,
+  clearSession,
+  recordRecent,
+  listRecents,
+  getRecentBytes,
+  setRecentPinned,
+  removeRecent,
+  clearRecents,
+  type SessionSnapshot,
+} from './persist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -12,6 +24,7 @@ const engine = Comlink.wrap<EngineAPI>(engineWorker);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const toolbar = {
   open: $<HTMLButtonElement>('btn-open'),
+  recents: $<HTMLButtonElement>('btn-recents'),
   save: $<HTMLButtonElement>('btn-save'),
   undo: $<HTMLButtonElement>('btn-undo'),
   redo: $<HTMLButtonElement>('btn-redo'),
@@ -35,14 +48,45 @@ let zoom = 1.25;
 let editingDisabled = false;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+// ---------- unsaved-edit tracking + autosave ----------
+
+let dirty = false; // an edit was applied and not yet saved anywhere
+let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Called after every committed edit/undo/redo: arms the unload guard and
+ *  debounces a crash-recovery snapshot into IndexedDB (best-effort). */
+function markDirty(): void {
+  dirty = true;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    if (!dirty || !currentBytes) return;
+    void saveSession({ bytes: currentBytes.slice(), fileName, savedAt: Date.now() }).catch(() => {});
+  }, 800);
+}
+
+function markClean(): void {
+  dirty = false;
+  clearTimeout(autosaveTimer);
+  void clearSession().catch(() => {});
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (!dirty) return;
+  e.preventDefault();
+  e.returnValue = ''; // required by Chrome to show the prompt
+});
+
 interface PageUI {
   wrap: HTMLDivElement;
   canvas: HTMLCanvasElement;
   overlay: HTMLDivElement;
   viewport: PageViewport;
   view: PageView | null;
+  rendered: boolean;
 }
 const pageUIs: PageUI[] = [];
+const baseDims: { w: number; h: number }[] = []; // per-page size at zoom 1
+let pageObserver: IntersectionObserver | null = null;
 
 function toast(msg: string, kind: 'info' | 'warn' | 'error' = 'info', ms = 4000): void {
   toastEl.textContent = msg;
@@ -75,6 +119,9 @@ function rectToCss(bbox: Rect, viewport: PageViewport): { left: number; top: num
 async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
   currentBytes = bytes;
   fileName = name;
+  dirty = false;
+  clearTimeout(autosaveTimer);
+  removeRestoreBar(); // opening a file supersedes any pending restore offer
   toolbar.fileName.textContent = name;
   dropzone.remove();
   banner(null);
@@ -94,6 +141,7 @@ async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
 
   await reloadPdfJs();
   await renderAllPages(true);
+  if (pageUIs.length) await renderPage(0); // first page eagerly: banner logic below needs its view
 
   toolbar.zoomIn.disabled = false;
   toolbar.zoomOut.disabled = false;
@@ -110,6 +158,11 @@ async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
       toast('Scanned PDF with OCR layer detected — click a highlighted word to patch-edit it.', 'info', 6000);
     }
   }
+
+  // recents bookkeeping is strictly best-effort — never let it break an open
+  if (recentsEnabled() && outcome.ok) {
+    void recordRecent(bytes, { name, pageCount: outcome.pageCount, thumb: captureThumb() }).catch(() => {});
+  }
 }
 
 async function reloadPdfJs(): Promise<void> {
@@ -118,11 +171,16 @@ async function reloadPdfJs(): Promise<void> {
   if (old) void old.destroy();
 }
 
+/** Pages render lazily: every page gets a correctly-sized placeholder (so
+ *  scroll geometry is right), and an IntersectionObserver renders pages as
+ *  they come within 300px of the viewport. A 200-page PDF paints its first
+ *  screen without rendering the other 199. */
 async function renderAllPages(rebuild: boolean): Promise<void> {
   if (!pdf) return;
   if (rebuild) {
     pageUIs.forEach((p) => p.wrap.remove());
     pageUIs.length = 0;
+    baseDims.length = 0;
     for (let i = 0; i < pdf.numPages; i++) {
       const wrap = document.createElement('div');
       wrap.className = 'page';
@@ -131,15 +189,37 @@ async function renderAllPages(rebuild: boolean): Promise<void> {
       overlay.className = 'overlay';
       wrap.append(canvas, overlay);
       pagesEl.append(wrap);
-      pageUIs.push({ wrap, canvas, overlay, viewport: null as unknown as PageViewport, view: null });
+      pageUIs.push({ wrap, canvas, overlay, viewport: null as unknown as PageViewport, view: null, rendered: false });
+      // getPage parses only the page dict — cheap compared to rendering
+      const page = await pdf.getPage(i + 1);
+      const vp = page.getViewport({ scale: 1 });
+      baseDims.push({ w: vp.width, h: vp.height });
     }
   }
-  for (let i = 0; i < pdf.numPages; i++) await renderPage(i);
+  pageObserver?.disconnect();
+  pageObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const idx = pageUIs.findIndex((p) => p.wrap === entry.target);
+        if (idx >= 0 && !pageUIs[idx].rendered) void renderPage(idx);
+      }
+    },
+    { rootMargin: '300px' },
+  );
+  for (let i = 0; i < pageUIs.length; i++) {
+    const ui = pageUIs[i];
+    ui.rendered = false;
+    ui.wrap.style.width = `${baseDims[i].w * zoom}px`;
+    ui.wrap.style.height = `${baseDims[i].h * zoom}px`;
+    pageObserver.observe(ui.wrap);
+  }
 }
 
 async function renderPage(index: number): Promise<void> {
   if (!pdf) return;
   const ui = pageUIs[index];
+  ui.rendered = true;
   const page = await pdf.getPage(index + 1);
   const viewport = page.getViewport({ scale: zoom });
   ui.viewport = viewport;
@@ -672,6 +752,7 @@ async function applyEdit(fn: () => Promise<{ status: string; message?: string; b
     }
     if (result.bytes) {
       currentBytes = result.bytes;
+      markDirty();
       await reloadPdfJs();
       await renderPage(pageIndex);
       await refreshHistoryButtons();
@@ -739,6 +820,7 @@ async function saveAs(): Promise<void> {
     const writable = await handle.createWritable();
     await writable.write(currentBytes.slice() as unknown as ArrayBuffer & Uint8Array);
     await writable.close();
+    markClean();
     toast(`Saved ${handle.name}.`);
   } catch (e) {
     if ((e as Error).name === 'AbortError') return;
@@ -749,6 +831,7 @@ async function saveAs(): Promise<void> {
 
 function download(): void {
   if (!currentBytes) return;
+  markClean(); // the downloaded copy carries the edits
   const copy = currentBytes.slice();
   const blob = new Blob([copy.buffer as ArrayBuffer], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
@@ -762,11 +845,13 @@ function download(): void {
 // ---------- wire up ----------
 
 toolbar.open.addEventListener('click', () => void openViaPicker());
+toolbar.recents.addEventListener('click', () => void openRecentsDialog());
 toolbar.save.addEventListener('click', () => void saveAs());
 async function applyHistory(fn: () => Promise<Uint8Array | null>, doneMsg: string): Promise<void> {
   const bytes = await fn();
   if (bytes) {
     currentBytes = bytes;
+    markDirty();
     await reloadPdfJs();
     await renderAllPages(false);
     await refreshHistoryButtons();
@@ -822,8 +907,235 @@ if (new URLSearchParams(location.search).has('debug')) {
   document.getElementById('debug-wrap')!.hidden = false;
 }
 
+// ---------- optional auto-open permission ----------
+// The extension ships with no standing host permissions; redirecting .pdf
+// navigations into the viewer needs <all_urls>, offered here as an opt-in.
+
+const chromePerms = typeof chrome !== 'undefined' ? chrome.permissions : undefined;
+
+function offerAutoOpenOptIn(): void {
+  if (!chromePerms || !dropzone.isConnected) return;
+  void chromePerms
+    .contains({ origins: ['<all_urls>'] })
+    .then((granted) => {
+      if (granted || !dropzone.isConnected) return;
+      const p = document.createElement('p');
+      p.className = 'hint';
+      p.append('Want .pdf links to open here automatically? ');
+      const btn = document.createElement('button');
+      btn.className = 'autopen-btn';
+      btn.textContent = 'Enable auto-open';
+      btn.addEventListener('click', () => {
+        void chromePerms
+          .request({ origins: ['<all_urls>'] })
+          .then((ok) => {
+            if (ok) {
+              p.remove();
+              toast('Auto-open enabled — PDF links will now open in EditPDF.', 'info', 5000);
+            }
+          })
+          .catch(() => {});
+      });
+      p.append(btn);
+      dropzone.querySelector('div')?.append(p);
+    })
+    .catch(() => {});
+}
+offerAutoOpenOptIn();
+
+// ---------- recent files ----------
+
+const REMEMBER_RECENTS_KEY = 'editpdf-remember-recents';
+
+function recentsEnabled(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_RECENTS_KEY) !== '0';
+  } catch {
+    return false;
+  }
+}
+
+function setRecentsEnabled(on: boolean): void {
+  try {
+    localStorage.setItem(REMEMBER_RECENTS_KEY, on ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
+/** 96px-wide JPEG thumbnail from the already-rendered first-page canvas. */
+function captureThumb(): string | undefined {
+  const src = pageUIs[0]?.canvas;
+  if (!src || !src.width) return undefined;
+  try {
+    const w = 96;
+    const h = Math.max(1, Math.round((src.height / src.width) * w));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(src, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', 0.7);
+  } catch {
+    return undefined;
+  }
+}
+
+function fmtSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+let recentsDialog: HTMLDivElement | null = null;
+
+function closeRecentsDialog(): void {
+  recentsDialog?.remove();
+  recentsDialog = null;
+}
+
+async function openRecentsDialog(): Promise<void> {
+  closeRecentsDialog();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recents-backdrop';
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeRecentsDialog();
+  });
+
+  const panel = document.createElement('div');
+  panel.className = 'recents-panel';
+  const title = document.createElement('h2');
+  title.textContent = 'Recent files';
+  panel.append(title);
+
+  const list = document.createElement('div');
+  list.className = 'recents-list';
+  const entries = await listRecents().catch(() => []);
+  if (!entries.length) {
+    const empty = document.createElement('p');
+    empty.className = 'recents-empty';
+    empty.textContent = recentsEnabled() ? 'No recent files yet.' : 'Remembering recent files is turned off.';
+    list.append(empty);
+  }
+  for (const m of entries) {
+    const row = document.createElement('div');
+    row.className = 'recents-row';
+    const thumb = document.createElement('img');
+    thumb.className = 'recents-thumb';
+    if (m.thumb) thumb.src = m.thumb;
+    thumb.alt = '';
+    const info = document.createElement('div');
+    info.className = 'recents-info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'recents-name';
+    nameEl.textContent = m.name;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'recents-meta';
+    metaEl.textContent = `${m.pageCount} page${m.pageCount === 1 ? '' : 's'} · ${fmtSize(m.size)} · ${new Date(m.openedAt).toLocaleDateString()}`;
+    info.append(nameEl, metaEl);
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'recents-pin' + (m.pinned ? ' pinned' : '');
+    pinBtn.textContent = '★';
+    pinBtn.title = m.pinned ? 'Unpin (pinned files are never auto-removed)' : 'Pin (never auto-remove)';
+    pinBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await setRecentPinned(m.hash, !m.pinned).catch(() => {});
+      void openRecentsDialog(); // rebuild with fresh state
+    });
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'recents-remove';
+    rmBtn.textContent = '✕';
+    rmBtn.title = 'Remove from recents';
+    rmBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await removeRecent(m.hash).catch(() => {});
+      void openRecentsDialog();
+    });
+    row.append(thumb, info, pinBtn, rmBtn);
+    row.addEventListener('click', async () => {
+      const bytes = await getRecentBytes(m.hash).catch(() => null);
+      closeRecentsDialog();
+      if (bytes) await openBytes(bytes, m.name);
+      else toast('This file is no longer cached — open it from disk instead.', 'warn', 5000);
+    });
+    list.append(row);
+  }
+  panel.append(list);
+
+  const footer = document.createElement('div');
+  footer.className = 'recents-footer';
+  const rememberLabel = document.createElement('label');
+  const rememberChk = document.createElement('input');
+  rememberChk.type = 'checkbox';
+  rememberChk.checked = recentsEnabled();
+  rememberChk.addEventListener('change', () => setRecentsEnabled(rememberChk.checked));
+  rememberLabel.append(rememberChk, document.createTextNode(' Remember recent files'));
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'recents-clear';
+  clearBtn.textContent = 'Clear all';
+  clearBtn.addEventListener('click', async () => {
+    await clearRecents().catch(() => {});
+    void openRecentsDialog();
+  });
+  footer.append(rememberLabel, clearBtn);
+  panel.append(footer);
+
+  backdrop.append(panel);
+  document.body.append(backdrop);
+  recentsDialog = backdrop;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && recentsDialog) closeRecentsDialog();
+});
+
+// ---------- session restore offer ----------
+
+let restoreBar: HTMLDivElement | null = null;
+
+function removeRestoreBar(): void {
+  restoreBar?.remove();
+  restoreBar = null;
+}
+
+function offerRestore(s: SessionSnapshot): void {
+  const bar = document.createElement('div');
+  bar.className = 'restore-bar';
+  const msg = document.createElement('span');
+  const when = new Date(s.savedAt).toLocaleString();
+  msg.textContent = `You have unsaved edits to "${s.fileName}" from ${when}.`;
+  const restoreBtn = document.createElement('button');
+  restoreBtn.textContent = 'Restore';
+  restoreBtn.addEventListener('click', async () => {
+    removeRestoreBar();
+    await openBytes(s.bytes, s.fileName);
+    dirty = true; // the restored edits are still unsaved
+    toast('Session restored — remember to Save As.', 'info', 5000);
+  });
+  const discardBtn = document.createElement('button');
+  discardBtn.className = 'secondary';
+  discardBtn.textContent = 'Discard';
+  discardBtn.addEventListener('click', async () => {
+    // await the clear BEFORE dismissing, so a fast reload can't resurrect the offer
+    await clearSession().catch(() => {});
+    removeRestoreBar();
+  });
+  bar.append(msg, restoreBtn, discardBtn);
+  document.body.insertBefore(bar, pagesEl);
+  restoreBar = bar;
+}
+
 // ?file=<url> — used by the navigation-intercept redirect
 const fileParam = new URLSearchParams(location.search).get('file');
+if (!fileParam) {
+  // offer to restore unsaved edits from a previous session (crash/closed tab)
+  void loadSession()
+    .then((s) => {
+      if (s && !currentBytes) offerRestore(s);
+    })
+    .catch(() => {});
+}
 if (fileParam) {
   (async () => {
     try {
@@ -833,7 +1145,12 @@ if (fileParam) {
       const name = decodeURIComponent(fileParam.split('/').pop() ?? 'document.pdf').split('?')[0];
       await openBytes(buf, name);
     } catch (e) {
-      banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : e}`);
+      let hint = '';
+      if (chromePerms) {
+        const granted = await chromePerms.contains({ origins: ['<all_urls>'] }).catch(() => false);
+        if (!granted) hint = ' EditPDF may need the auto-open permission to fetch PDFs from websites.';
+      }
+      banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : e}.${hint}`);
     }
   })();
 }

@@ -48,6 +48,9 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
 - On scanned+OCR pages, words show **dashed amber boxes**; click one to patch-edit it (with its own ink-color picker).
 - **Save As** opens a save dialog (suggesting `<name>-edited.pdf`) — the original file is never overwritten. **Undo/Redo** step through edits one at a time.
+- **Crash recovery**: edits are snapshotted locally (IndexedDB); if the tab closes before you save, the viewer offers to restore them on next open. Closing with unsaved edits also warns first.
+- **Recents**: reopen recently used files from the toolbar (content-hashed cache, max 10 files / 100 MB, pinnable, with an off switch). Everything stays on your device — see `PRIVACY.md`.
+- The extension installs with **no site access**; automatic opening of `.pdf` links is an explicit opt-in on the start screen and can be revoked in `chrome://extensions`.
 - **Debug boxes** (maintainer feature, hidden by default — open the viewer with `?debug` to reveal the toolbar checkbox) draws every detected text run (green = invisible OCR layer).
 
 ## Known limitations (v1)

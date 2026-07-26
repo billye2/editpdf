@@ -8,12 +8,14 @@ let doc: EditableDocument | null = null;
 
 const api: EngineAPI = {
   async load(bytes: Uint8Array): Promise<LoadOutcome> {
-    const { doc: d, outcome } = await EditableDocument.load(bytes);
+    // lazy: page models build on first getPage, so huge PDFs open instantly
+    const { doc: d, outcome } = await EditableDocument.load(bytes, { lazy: true });
     doc = d;
     return outcome;
   },
   async getPage(index: number): Promise<PageView> {
     if (!doc) throw new Error('No document loaded');
+    await doc.ensurePageReady(index);
     return doc.getPageView(index);
   },
   async editParagraph(

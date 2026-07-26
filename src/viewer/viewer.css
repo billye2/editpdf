@@ -150,6 +150,174 @@ body {
   background: rgba(202, 138, 4, 0.12);
 }
 
+.autopen-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.autopen-btn:hover {
+  background: #3b82f6;
+}
+
+.recents-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recents-panel {
+  width: min(440px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: #2f3439;
+  color: #e8edf3;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 16px;
+}
+
+.recents-panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.recents-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recents-empty {
+  color: #9aa4af;
+  font-size: 13px;
+}
+
+.recents-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.recents-row:hover {
+  background: #3b4249;
+}
+
+.recents-thumb {
+  width: 36px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: #fff;
+  flex: none;
+}
+
+.recents-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.recents-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recents-meta {
+  font-size: 11px;
+  color: #9aa4af;
+}
+
+.recents-pin,
+.recents-remove {
+  background: none;
+  border: none;
+  color: #6b7480;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.recents-pin.pinned {
+  color: #fbbf24;
+}
+
+.recents-pin:hover,
+.recents-remove:hover {
+  background: #4a515a;
+  color: #e8edf3;
+}
+
+.recents-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #c3ccd6;
+}
+
+.recents-footer .recents-clear {
+  background: #4a4f54;
+  color: #eee;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.recents-footer .recents-clear:hover {
+  background: #5d646b;
+}
+
+.restore-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #3b4a5e;
+  color: #e8edf3;
+  font-size: 13px;
+}
+
+.restore-bar button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+.restore-bar button:hover {
+  background: #3b82f6;
+}
+
+.restore-bar button.secondary {
+  background: #4a4f54;
+}
+
+.restore-bar button.secondary:hover {
+  background: #5d646b;
+}
+
 .img-box {
   position: absolute;
   pointer-events: auto;

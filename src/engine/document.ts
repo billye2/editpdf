@@ -62,13 +62,22 @@ function hexToBytes(hexStr: string): Uint8Array {
 
 export class EditableDocument {
   private pdfDoc!: PDFDocument;
-  private pages: PageState[] = [];
+  private pages: (PageState | null)[] = [];
+  private pageList: PDFPage[] = [];
+  private building = new Map<number, Promise<PageState>>();
   private undoStack: UndoEntry[] = [];
   private redoStack: UndoEntry[] = [];
   private stdFonts = new Map<string, PDFFont>();
   private nextResIdx = 1;
 
-  static async load(bytes: Uint8Array): Promise<{ doc: EditableDocument | null; outcome: LoadOutcome }> {
+  /** With `lazy`, per-page models (content-stream parse, fonts, text model)
+   *  are built on first access instead of up front — the viewer uses this so
+   *  a 200-page PDF opens as fast as its first page. Tests use the eager
+   *  default so the sync getPageView call-sites keep working. */
+  static async load(
+    bytes: Uint8Array,
+    opts?: { lazy?: boolean },
+  ): Promise<{ doc: EditableDocument | null; outcome: LoadOutcome }> {
     const doc = new EditableDocument();
     try {
       doc.pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -78,14 +87,30 @@ export class EditableDocument {
       return { doc: null, outcome: { ok: false, pageCount: 0, encrypted, error: msg } };
     }
     try {
-      await doc.buildPages();
+      doc.pageList = doc.pdfDoc.getPages();
+      doc.pages = doc.pageList.map(() => null);
+      if (!opts?.lazy) {
+        for (let i = 0; i < doc.pageList.length; i++) await doc.buildPage(i);
+      }
     } catch (e) {
       return {
         doc: null,
         outcome: { ok: false, pageCount: 0, encrypted: false, error: e instanceof Error ? e.message : String(e) },
       };
     }
-    return { doc, outcome: { ok: true, pageCount: doc.pages.length, encrypted: false } };
+    return { doc, outcome: { ok: true, pageCount: doc.pageList.length, encrypted: false } };
+  }
+
+  /** Build the page model on first access (idempotent, race-safe). */
+  async ensurePageReady(index: number): Promise<void> {
+    if (this.pages[index]) return;
+    let p = this.building.get(index);
+    if (!p) {
+      p = this.buildPage(index);
+      this.building.set(index, p);
+      void p.finally(() => this.building.delete(index));
+    }
+    await p;
   }
 
   private ctx() {
@@ -159,27 +184,25 @@ export class EditableDocument {
     return out;
   }
 
-  private async buildPages(): Promise<void> {
-    this.pages = [];
-    const pageList = this.pdfDoc.getPages();
-    for (const page of pageList) {
-      const bytes = this.getContentBytes(page);
-      const ops = parseContent(bytes);
-      const st: PageState = {
-        page,
-        ops,
-        fonts: await parsePageFonts(this.pdfDoc, this.pageResources(page)),
-        imageNames: this.pageImageNames(page),
-        runs: [],
-        runIndex: new Map(),
-        paras: new Map(),
-        ocrWords: new Map(),
-        images: new Map(),
-        stdFontRes: new Map(),
-      };
-      this.reinterpret(st);
-      this.pages.push(st);
-    }
+  private async buildPage(index: number): Promise<PageState> {
+    const page = this.pageList[index];
+    const bytes = this.getContentBytes(page);
+    const ops = parseContent(bytes);
+    const st: PageState = {
+      page,
+      ops,
+      fonts: await parsePageFonts(this.pdfDoc, this.pageResources(page)),
+      imageNames: this.pageImageNames(page),
+      runs: [],
+      runIndex: new Map(),
+      paras: new Map(),
+      ocrWords: new Map(),
+      images: new Map(),
+      stdFontRes: new Map(),
+    };
+    this.reinterpret(st);
+    this.pages[index] = st;
+    return st;
   }
 
   private reinterpret(st: PageState): void {
@@ -220,6 +243,7 @@ export class EditableDocument {
 
   getPageView(index: number): PageView {
     const st = this.pages[index];
+    if (!st) throw new Error(`Page ${index} model not built — call ensurePageReady first.`);
     const { width, height } = st.page.getSize();
     return {
       index,
@@ -404,7 +428,8 @@ export class EditableDocument {
   }
 
   private snapshot(pageIndex: number): void {
-    this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex].ops] });
+    // edit paths ensure the page model exists before snapshotting
+    this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex]!.ops] });
     if (this.undoStack.length > 50) this.undoStack.shift();
     this.redoStack = []; // a fresh edit invalidates the redo history
   }
@@ -416,6 +441,7 @@ export class EditableDocument {
     color?: RGB,
     colorRanges?: import('../shared/types').ColorRange[],
   ): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
     const st = this.pages[pageIndex];
     const para = st?.paras.get(paragraphId);
     if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
@@ -558,6 +584,7 @@ export class EditableDocument {
     patchColor: RGB,
     textColor?: RGB,
   ): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
     const st = this.pages[pageIndex];
     const word = st?.ocrWords.get(runId);
     const run = st?.runIndex.get(runId);
@@ -629,6 +656,7 @@ export class EditableDocument {
    *  through the inverse of the CTM's linear part: D = M·T(dx,dy)·M⁻¹, a pure
    *  translation. */
   async moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
     const st = this.pages[pageIndex];
     const pl = st ? this.imagePlacement(st, imageId) : null;
     if (!st || !pl) return { status: 'error', message: 'Image not found (the page may have changed).' };
@@ -665,6 +693,7 @@ export class EditableDocument {
   /** Delete an image placement. `Do` has no graphics-state side effects, so
    *  dropping just the op is safe; surrounding q/cm/Q stay as harmless no-ops. */
   async deleteImage(pageIndex: number, imageId: string): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
     const st = this.pages[pageIndex];
     const pl = st ? this.imagePlacement(st, imageId) : null;
     if (!st || !pl) return { status: 'error', message: 'Image not found (the page may have changed).' };
@@ -692,7 +721,7 @@ export class EditableDocument {
   async undo(): Promise<Uint8Array | null> {
     const entry = this.undoStack.pop();
     if (!entry) return null;
-    const st = this.pages[entry.pageIndex];
+    const st = this.pages[entry.pageIndex]!; // edits only exist on built pages
     this.redoStack.push({ pageIndex: entry.pageIndex, ops: [...st.ops] });
     st.ops = entry.ops;
     this.rebuildStream(st);
@@ -702,7 +731,7 @@ export class EditableDocument {
   async redo(): Promise<Uint8Array | null> {
     const entry = this.redoStack.pop();
     if (!entry) return null;
-    const st = this.pages[entry.pageIndex];
+    const st = this.pages[entry.pageIndex]!; // edits only exist on built pages
     // push directly (not via snapshot(), which would wipe the redo stack)
     this.undoStack.push({ pageIndex: entry.pageIndex, ops: [...st.ops] });
     st.ops = entry.ops;

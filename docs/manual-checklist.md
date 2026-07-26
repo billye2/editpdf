@@ -40,6 +40,16 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Move an image so it overlaps text drawn after it → the text still paints ON TOP (z-order preserved)
 - [ ] Saved copy opens in Preview/Chrome with the image moved/removed as expected
 
+## Persistence & permissions
+- [ ] Edit a doc, close the tab → warning prompt; reopen viewer → restore bar offers the unsaved edits; Restore brings them back
+- [ ] Discard on the restore bar, then reload → no offer reappears
+- [ ] Save As after edits → no unload warning, no restore offer on next open
+- [ ] Recents: opened files appear (thumbnail, page count, size); click reopens; pin survives eviction; Clear all empties; off-switch stops new entries
+- [ ] Fresh install: no site access listed in chrome://extensions; .pdf URL navigation does NOT redirect
+- [ ] Click "Enable auto-open" on the start screen → permission prompt; after grant, .pdf URL navigation redirects into the viewer
+- [ ] Revoke site access in chrome://extensions → redirect stops (rule removed), extension still opens files via picker/drop
+- [ ] Open a 60+ page PDF → first screen paints immediately; scrolling renders pages as they approach; zoom re-renders only visible pages
+
 ## General
 - [ ] Zoom in/out re-renders pages and overlays stay aligned
 - [ ] Fit width fills the window width; Fit page shows the whole page; overlays stay aligned after both

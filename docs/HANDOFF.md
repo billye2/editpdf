@@ -30,8 +30,13 @@ viewer (DOM, src/viewer/)  ←Comlink→  engine worker (pure TS, src/engine/)
                                                   text-model/      paragraphs.ts (words/lines/paras)
                                                   fonts/           font-info.ts, truetype.ts, encoding.ts
                                                   reflow/          reflow.ts (LCS diff + greedy wrap)
-  background/background.ts  MV3 .pdf-URL redirect (best-effort)
+  background/background.ts  MV3 .pdf-URL redirect (installed only while the
+                            optional <all_urls> grant exists; synced on
+                            permissions.onAdded/onRemoved)
   shared/types.ts           serializable protocol between the two sides
+  viewer/persist.ts         IndexedDB: crash-recovery session snapshot +
+                            content-hashed recents cache (best-effort only —
+                            persistence must never break viewing/editing)
 ```
 
 **Data flow of an edit**: viewer builds an edit request → `document.ts` plans
@@ -116,7 +121,11 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
    invisible to the engine (Illustrator/InDesign PDFs). Largest real-world
    coverage gap.
 2. **Performance** — every edit does a full `pdfDoc.save()` + full pdf.js
-   reload; page models build eagerly for all pages at load. Fine ≤ ~20 pages.
+   reload of the edited page. Page rendering is lazy (IntersectionObserver,
+   300px margin) and engine page models build on first access
+   (`EditableDocument.load(bytes, {lazy:true})` in the worker;
+   `ensurePageReady`), so open cost scales with the first screen, not the
+   document. Remaining ceiling: `pdfDoc.save()` is whole-document.
 3. Viewer is a ~800-line monolith (`main.ts`) with no automated UI tests.
 4. CFF/Type1 fonts can't be extended (TrueType only); RTL/CJK/shaping out of
    scope; justified text re-emitted left-aligned; tagged-PDF structure tree
