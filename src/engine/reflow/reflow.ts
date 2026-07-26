@@ -167,7 +167,6 @@ export function planReflow(
     const lines: { words: typeof resolved; width: number }[] = [];
     let cur: typeof resolved = [];
     let curW = 0;
-    let avail = maxWidth - firstIndent * (lines.length === 0 ? 1 : 0);
     for (const w of resolved) {
       const ww = w.width * scale;
       const sw = cur.length ? w.spaceW * scale : 0;
@@ -181,7 +180,6 @@ export function planReflow(
       cur.push(w);
     }
     if (cur.length) lines.push({ words: cur, width: curW });
-    void avail;
     return lines;
   };
 
