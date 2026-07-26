@@ -28,6 +28,41 @@ describe('end-to-end editing', () => {
     expect(view2.paragraphs.some((p) => p.text.startsWith('A second'))).toBe(true);
   });
 
+  it('deletes a paragraph, leaving the other intact; undo restores it', async () => {
+    const bytes = await makeParagraphPdf();
+    const { doc } = await EditableDocument.load(bytes);
+    const view = doc!.getPageView(0);
+    const target = view.paragraphs.find((p) => p.text.includes('quick brown fox'))!;
+
+    const result = await doc!.deleteParagraph(0, target.id);
+    expect(result.status).toBe('ok');
+
+    // independent check on freshly re-loaded bytes
+    const { doc: doc2 } = await EditableDocument.load(result.bytes!);
+    const view2 = doc2!.getPageView(0);
+    expect(view2.paragraphs.some((p) => p.text.includes('quick brown fox'))).toBe(false);
+    const second = view2.paragraphs.find((p) => p.text.startsWith('A second'))!;
+    expect(second).toBeTruthy();
+    // the surviving paragraph must not have moved (removeShowOps keeps side effects)
+    const secondBefore = view.paragraphs.find((p) => p.text.startsWith('A second'))!;
+    expect(second.bbox.x).toBeCloseTo(secondBefore.bbox.x, 1);
+    expect(second.bbox.y).toBeCloseTo(secondBefore.bbox.y, 1);
+
+    // third-party extractor agrees (invariant 8)
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const pdoc = await pdfjs.getDocument({ data: result.bytes!.slice(), useSystemFonts: true }).promise;
+    const content = await (await pdoc.getPage(1)).getTextContent();
+    const text = content.items.map((i) => ('str' in i ? (i as { str: string }).str : '')).join(' ');
+    await pdoc.destroy();
+    expect(text).not.toContain('quick brown fox');
+    expect(text).toContain('A second paragraph');
+
+    // undo brings the paragraph back
+    const undone = await doc!.undo();
+    expect(undone).toBeTruthy();
+    expect(doc!.getPageView(0).paragraphs.some((p) => p.text.includes('quick brown fox'))).toBe(true);
+  });
+
   it('keeps unedited words in their original font', async () => {
     const bytes = await makeParagraphPdf();
     const { doc } = await EditableDocument.load(bytes);

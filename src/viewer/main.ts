@@ -602,12 +602,29 @@ function beginParagraphEdit(pageIndex: number, para: ParagraphView): void {
     }
   });
 
+  // ✕ at the box's top-left corner deletes the whole paragraph (mirrors the
+  // image delete affordance)
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'edit-delete-btn';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Delete this paragraph';
+  delBtn.style.left = `${rect.left - 10}px`;
+  delBtn.style.top = `${rect.top - 10}px`;
+  // keep the click from blurring the edit box into a premature commit
+  delBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  delBtn.addEventListener('click', () => {
+    cleanup();
+    void applyEdit(() => engine.deleteParagraph(pageIndex, para.id), pageIndex);
+  });
+
   let done = false;
   const cleanup = () => {
     done = true;
     ed.remove();
     hint.remove();
     colorRow.row.remove();
+    delBtn.remove();
   };
   const commit = async () => {
     if (done) return;
@@ -631,7 +648,7 @@ function beginParagraphEdit(pageIndex: number, para: ParagraphView): void {
   });
   ed.addEventListener('blur', () => void commit());
 
-  ui.wrap.append(ed, hint, colorRow.row);
+  ui.wrap.append(ed, hint, colorRow.row, delBtn);
   autosize();
   ed.focus();
   const sel = window.getSelection();

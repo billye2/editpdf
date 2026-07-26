@@ -8,6 +8,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Replace a short word with a long one (`fox` → `velociraptor`), ⌘+Enter → paragraph reflows inside its box, line count may grow
 - [ ] Escape cancels without changes
 - [ ] Undo restores the original text; Redo re-applies it; a new edit after Undo disables Redo
+- [ ] ✕ on the paragraph edit box deletes the whole paragraph; neighbors don't shift; undo restores it
 - [ ] Save As → open the copy in Chrome's native viewer, macOS Preview, AND Acrobat Reader — text renders, no errors
 - [ ] Search (⌘F in Preview/Acrobat) finds the edited word in the saved copy
 - [ ] Type a character not in the doc font (e.g. `→`) → clear error toast, no corrupt output

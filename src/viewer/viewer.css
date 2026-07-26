@@ -343,10 +343,9 @@ body {
   z-index: 5;
 }
 
-.img-delete-btn {
+.img-delete-btn,
+.edit-delete-btn {
   position: absolute;
-  top: -10px;
-  right: -10px;
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -357,9 +356,16 @@ body {
   line-height: 20px;
   cursor: pointer;
   padding: 0;
+  z-index: 10;
 }
 
-.img-delete-btn:hover {
+.img-delete-btn {
+  top: -10px;
+  right: -10px;
+}
+
+.img-delete-btn:hover,
+.edit-delete-btn:hover {
   background: #b91c1c;
 }
 

@@ -91,6 +91,7 @@ export interface EngineAPI {
     color?: RGB,
     colorRanges?: ColorRange[],
   ): Promise<EditOutcome>;
+  deleteParagraph(pageIndex: number, paragraphId: string): Promise<EditOutcome>;
   editOcrWord(pageIndex: number, runId: string, newText: string, patchColor: RGB, textColor?: RGB): Promise<EditOutcome>;
   /** Move an image placement by (dx, dy) in page space (y-up). */
   moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome>;

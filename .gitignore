@@ -8,4 +8,5 @@ public/samples/
 
 # local-only test corpus (user documents — never publish)
 test/corpus-*.pdf
+test/*.pdf
 .DS_Store

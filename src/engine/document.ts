@@ -577,6 +577,19 @@ export class EditableDocument {
     };
   }
 
+  /** Delete a whole paragraph: remove its show-ops (removeShowOps preserves
+   *  the ops' positioning side effects, so surrounding text is unaffected). */
+  async deleteParagraph(pageIndex: number, paragraphId: string): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
+    const st = this.pages[pageIndex];
+    const para = st?.paras.get(paragraphId);
+    if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+    this.snapshot(pageIndex);
+    st.ops = this.removeShowOps(st.ops, para.opIndices);
+    this.rebuildStream(st);
+    return { status: 'ok', bytes: await this.save() };
+  }
+
   async editOcrWord(
     pageIndex: number,
     runId: string,
