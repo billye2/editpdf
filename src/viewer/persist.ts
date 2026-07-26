@@ -122,6 +122,15 @@ export async function hashBytes(bytes: Uint8Array, name: string): Promise<string
   }
 }
 
+// Strictly monotonic timestamp: same-millisecond writes would make the
+// "oldest unpinned" eviction order arbitrary (Date.now() ties — hit by fast
+// CI runners writing several entries in one ms).
+let lastOpenedAt = 0;
+function nextOpenedAt(): number {
+  lastOpenedAt = Math.max(Date.now(), lastOpenedAt + 1);
+  return lastOpenedAt;
+}
+
 /** Store/update a recent entry and evict (oldest unpinned first) past the
  *  count/size caps — eviction runs in the SAME transaction as the write so
  *  meta and bytes can never drift apart. Best-effort: callers fire-and-forget. */
@@ -142,7 +151,7 @@ export async function recordRecent(
     name: info.name,
     size: bytes.length,
     pageCount: info.pageCount,
-    openedAt: Date.now(),
+    openedAt: nextOpenedAt(),
     pinned: existing?.pinned ?? false,
     thumb: info.thumb ?? existing?.thumb,
   };
