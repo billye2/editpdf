@@ -215,12 +215,16 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
   let descent = -0.25;
   let encMap = new Map<number, string>(); // code -> unicode (from encoding, not ToUnicode)
 
+  let stemV: number | undefined;
+  let italicAngle: number | undefined;
   const applyDescriptor = (desc: PDFDict | undefined) => {
     if (!desc) return;
     const a = asNum(ctx, desc.get(PDFName.of('Ascent')));
     const d = asNum(ctx, desc.get(PDFName.of('Descent')));
     if (a !== undefined && a !== 0) ascent = a / 1000;
     if (d !== undefined && d !== 0) descent = d / 1000;
+    stemV = asNum(ctx, desc.get(PDFName.of('StemV'))) ?? stemV;
+    italicAngle = asNum(ctx, desc.get(PDFName.of('ItalicAngle'))) ?? italicAngle;
     const flags = asNum(ctx, desc.get(PDFName.of('Flags')));
     if (flags !== undefined) {
       if (flags & 1) style.kind = 'mono';
@@ -337,6 +341,43 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
           return 500;
         }
       };
+    }
+  }
+
+  // Style refinement beyond the name heuristic: subset fonts often carry
+  // munged/meaningless names (news-site licensing), so the fallback face was
+  // picked badly — e.g. a heavy serif headline falling back to light
+  // Helvetica. The descriptor (StemV, ItalicAngle) and the font program's
+  // OS/2 table (weight class, serif family class, PANOSE) are authoritative.
+  const ttForStyle = tt ?? (fontFile2 ? parseTrueType(fontFile2) : null);
+  const os2 = ttForStyle?.os2;
+  let serifKnown = style.kind !== 'sans'; // name/flags already decided
+  if (os2) {
+    if (os2.weightClass >= 600) style.bold = true;
+    if (os2.italic) style.italic = true;
+    const serifByClass = (os2.familyClass >= 1 && os2.familyClass <= 5) || os2.familyClass === 7;
+    const serifByPanose = os2.panose[0] === 2 && os2.panose[1] >= 2 && os2.panose[1] <= 10;
+    if ((serifByClass || serifByPanose) && style.kind !== 'mono') {
+      style.kind = 'serif';
+      serifKnown = true;
+    }
+    if (os2.panose[0] === 2 && os2.panose[1] >= 11) serifKnown = true; // PANOSE says sans explicitly
+  } else if (stemV !== undefined && stemV >= 150) {
+    style.bold = true; // no OS/2 to consult; heavy stems ⇒ bold-ish fallback
+  }
+  if (italicAngle !== undefined && Math.abs(italicAngle) > 4) style.italic = true;
+  // Explicitly-sans family names are trusted; otherwise, when metadata gave no
+  // serif verdict (munged subsets zero it out), sniff a stem glyph's outline.
+  const strippedName = baseFont.replace(/^[A-Z]{6}\+/, '').toLowerCase();
+  if (/helvetica|arial|verdana|tahoma|segoe|roboto|futura|gill|franklin|grotes|gothic|lato|open ?sans|noto ?sans/.test(strippedName)) {
+    serifKnown = true;
+  }
+  if (!serifKnown && ttForStyle) {
+    for (const ch of ['l', 'I']) {
+      const pts = ttForStyle.pointCountFor(ch.codePointAt(0)!);
+      if (pts === null) continue;
+      if (pts >= 10) style.kind = 'serif';
+      break; // first measurable stem glyph decides
     }
   }
 

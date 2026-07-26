@@ -135,3 +135,9 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
    scope; justified text re-emitted left-aligned; tagged-PDF structure tree
    not updated; signatures invalidated on save (full save, not incremental);
    encrypted PDFs view-only; sub-word coloring not supported (word granularity).
+5. **Fallback style matching** (font-info.ts style refinement): glyphs absent
+   from a pruned subset can never be recovered — the fallback face is matched
+   via OS/2 usWeightClass / StemV (weight), ItalicAngle / fsSelection (slant),
+   and, when metadata is scrubbed (munged news-site subsets zero familyClass
+   AND PANOSE), a stem-glyph outline probe ('l'/'I' point count ≥ 10 ⇒ serif;
+   `pointCountFor` in truetype.ts). Regression: test/fallback-style.test.ts.

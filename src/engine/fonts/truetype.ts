@@ -7,6 +7,17 @@ export interface TTFont {
   numGlyphs: number;
   gidFor(cp: number): number; // 0 = missing
   advanceFor(gid: number): number; // in font units
+  /** Outline point count of a simple glyph, or null (missing/composite/no
+   *  glyf access). Stem glyphs ('l', 'I') have ~4-6 points in sans faces and
+   *  12+ with serifs — a last-resort serif signal when metadata is scrubbed. */
+  pointCountFor(cp: number): number | null;
+  /** OS/2 table style signals (absent when the subset drops the table). */
+  os2?: {
+    weightClass: number; // usWeightClass: 400 regular, 700 bold
+    familyClass: number; // sFamilyClass high byte: 1-5,7 serif; 8 sans
+    panose: Uint8Array; // 10 bytes; [0]==2 text-and-display, [1] 2-10 serif
+    italic: boolean; // fsSelection bit 0
+  };
 }
 
 export function parseTrueType(bytes: Uint8Array): TTFont | null {
@@ -111,5 +122,37 @@ function parse(bytes: Uint8Array): TTFont | null {
     return null;
   }
 
-  return { unitsPerEm: unitsPerEm || 1000, numGlyphs, gidFor, advanceFor };
+  const loca = tables.get('loca');
+  const glyf = tables.get('glyf');
+  const longLoca = dv.getInt16(head.offset + 50) !== 0;
+  const pointCountFor = (cp: number): number | null => {
+    if (!loca || !glyf) return null;
+    const gid = gidFor(cp);
+    if (gid <= 0 || gid >= numGlyphs) return null;
+    try {
+      const at = (i: number) => (longLoca ? dv.getUint32(loca.offset + i * 4) : dv.getUint16(loca.offset + i * 2) * 2);
+      const o = at(gid);
+      const next = at(gid + 1);
+      if (next <= o) return null; // empty glyph
+      const nContours = dv.getInt16(glyf.offset + o);
+      if (nContours <= 0) return null; // composite
+      return dv.getUint16(glyf.offset + o + 10 + (nContours - 1) * 2) + 1;
+    } catch {
+      return null;
+    }
+  };
+
+  let os2: TTFont['os2'];
+  const os2T = tables.get('OS/2');
+  if (os2T && os2T.length >= 64) {
+    const o = os2T.offset;
+    os2 = {
+      weightClass: dv.getUint16(o + 4),
+      familyClass: dv.getInt16(o + 30) >> 8,
+      panose: bytes.slice(o + 32, o + 42),
+      italic: (dv.getUint16(o + 62) & 1) !== 0,
+    };
+  }
+
+  return { unitsPerEm: unitsPerEm || 1000, numGlyphs, gidFor, advanceFor, pointCountFor, os2 };
 }
