@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EditPDF",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "description": "Edit the actual text of PDFs — including OCR'd scans — entirely in your browser.",
   "action": {
     "default_title": "Open EditPDF"
