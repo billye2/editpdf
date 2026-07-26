@@ -1,7 +1,8 @@
 # EditPDF — Maintainer Handoff
 
 Chrome extension (MV3) for true PDF text and image editing, fully
-client-side. Current version **1.5.7**. Repo: `github.com/billye2/editpdf`
+client-side. Current version: see `package.json` (bumped by every release).
+Repo: `github.com/billye2/editpdf`
 (private). CI runs type-check + tests + build on every push
 (`.github/workflows/ci.yml`). `npm run release` bumps, builds, zips the
 Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
@@ -43,6 +44,7 @@ viewer (DOM, src/viewer/)  ←Comlink→  engine worker (pure TS, src/engine/)
                                                   text-model/      paragraphs.ts (words/lines/paras)
                                                   fonts/           font-info.ts, truetype.ts, encoding.ts
                                                   reflow/          reflow.ts (LCS diff + greedy wrap)
+                                                  annotations.ts   FreeText → page-content flattening
   background/background.ts  MV3 .pdf-URL redirect (installed only while the
                             optional <all_urls> grant exists; synced on
                             permissions.onAdded/onRemoved)
@@ -110,7 +112,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 75 tests. Some groups auto-skip off-macOS/CI:
+`npx vitest run` — 79 tests. Some groups auto-skip off-macOS/CI:
 - `fonts-cid.test.ts` needs `/System/Library/Fonts/Supplemental/Arial Bold.ttf`.
 - `per-glyph-pdf.test.ts`, parts of `overflow.test.ts`, and
   `fallback-style.test.ts` need `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
