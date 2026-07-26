@@ -60,12 +60,12 @@ npm run release -- --dry-run  # run the checks, touch nothing
 
 ## Known limitations (v1)
 
-- Fonts: new characters keep the document's embedded font whenever its font program contains their glyphs (verified against the font's own `cmap`; ToUnicode and CID widths are updated on save). Genuinely pruned subset fonts fall back to a standard font matched on real style signals — OS/2 weight class, italic angle, and (when licensing-munged subsets scrub all metadata) a stem-glyph outline probe that detects serifs — with an explanatory notice.
+- Fonts: new characters keep the document's embedded font whenever its font program contains their glyphs (verified against the font's own `cmap`; ToUnicode and CID widths are updated on save). Genuinely pruned subset fonts fall back to a **bundled open-licensed look-alike** — Gelasio (Georgia-metric serif) or Liberation Sans (Arial-metric), both SIL OFL, embedded as subsets — matched on real style signals: OS/2 weight class, italic angle, and (when licensing-munged subsets scrub all metadata) a stem-glyph outline probe that detects serifs. The bundled faces cover Latin-Extended, Greek, and Cyrillic; the standard-14 fonts remain a last tier. An explanatory notice is shown whenever a substitute is used.
 - Patch-over text on scans won't visually match the scanned typeface, and patch color sampling fails on textured/gradient backgrounds.
 - Reflow is strictly within one detected paragraph — tables, text wrapped around images, and cross-column/cross-page flows are out of scope. Justified paragraphs are re-emitted left-aligned per-word (fine kerning from the original `TJ` arrays is lost in reflowed lines).
 - Text inside Form XObjects is not editable (common in Illustrator-generated PDFs).
 - Encrypted PDFs are view-only. Editing a signed PDF invalidates its signature.
 - The tagged-PDF structure tree is not updated (screen-reader desync on edited paragraphs).
-- Latin scripts only: RTL, CJK, and complex shaping are out of scope; characters not present in the document's fonts or the standard-14 fallbacks are rejected.
+- RTL, CJK, and complex shaping are out of scope; characters not present in the document's fonts or the bundled fallback faces are rejected.
 - Image-only scans (no OCR layer) are view-only — the viewer shows a notice.
 - MV3 URL interception is best-effort (PDFs served without a `.pdf` extension may open in Chrome's native viewer); the file picker path always works.

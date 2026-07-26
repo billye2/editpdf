@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 async function loadSample(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Try a sample' }).click();
-  await expect(page.locator('#file-name')).toHaveText('sample.pdf · 1 page');
+  await expect(page.locator('#file-name')).toHaveText('sample.pdf · 2 pages');
   await expect(page.locator('.page canvas').first()).toBeVisible();
 }
 
@@ -65,12 +65,17 @@ test('Fit page fits the page even when zoomed in and scrolled', async ({ page })
   await page.locator('#btn-zoom-in').click();
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await page.locator('#btn-fit-page').click();
+  // fit-page snaps the page you were reading into view — with a multi-page
+  // document scrolled to the bottom that's the last page, so assert that
+  // SOME page ends up fully visible below the sticky header
   await expect
     .poll(async () =>
       page.evaluate(() => {
-        const r = document.querySelector('.page')!.getBoundingClientRect();
         const chromeH = document.getElementById('chrome')!.getBoundingClientRect().height;
-        return r.top >= chromeH - 1 && r.bottom <= window.innerHeight + 1;
+        return [...document.querySelectorAll('.page')].some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top >= chromeH - 1 && r.bottom <= window.innerHeight + 1;
+        });
       }),
     )
     .toBe(true);
@@ -99,6 +104,20 @@ test('paragraph edit round-trip: edit, undo, redo', async ({ page }) => {
   await expect(page.locator('#toast')).toHaveText('Redone.');
 });
 
+test('bundled fallback fonts: typing beyond WinAnsi succeeds with a substitute notice', async ({ page }) => {
+  await loadSample(page);
+  const para = page.locator('.para-box').first();
+  await expect(para).toBeVisible();
+  await para.click();
+  await expect(page.locator('.edit-box.edit-rich')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+a');
+  // Ł and ó are outside WinAnsi — a hard reject before the bundled fonts
+  await page.keyboard.type('Łódź Fabryczna quarterly review');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(page.locator('#toast')).toContainText('substitute font was used');
+  await expect(page.locator('#btn-undo')).toBeEnabled();
+});
+
 test('warns before replacing a document that has unsaved edits', async ({ page }) => {
   await loadSample(page);
   await page.locator('.para-box').first().click();
@@ -121,7 +140,7 @@ test('warns before replacing a document that has unsaved edits', async ({ page }
   let dialog = await dialogSeen;
   expect(dialog.message()).toContain('unsaved edits');
   await dialog.dismiss();
-  await expect(page.locator('#file-name')).toHaveText('sample.pdf · 1 page');
+  await expect(page.locator('#file-name')).toHaveText('sample.pdf · 2 pages');
 
   // accept → the new document replaces it
   dialogSeen = page.waitForEvent('dialog');

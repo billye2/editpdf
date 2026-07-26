@@ -3,7 +3,7 @@
 Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extension.
 
 ## Born-digital (sample.pdf)
-- [ ] Open via toolbar button → file picker; page renders, 3 paragraph outlines on hover
+- [ ] Open via toolbar button → file picker; both report pages render (page 2 lazily on scroll), paragraph outlines on hover, logo/chart/photo images show purple outlines and drag
 - [ ] Click body paragraph → textarea appears seeded with paragraph text
 - [ ] Replace a short word with a long one (`fox` → `velociraptor`), ⌘+Enter → paragraph reflows inside its box, line count may grow
 - [ ] Paste far too much text into a paragraph with content right below it → clear "would overlap" error toast, document unchanged (no garbled overlap)
@@ -13,7 +13,8 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Save As → open the copy in Chrome's native viewer, macOS Preview, AND Acrobat Reader — text renders, no errors
 - [ ] Search (⌘F in Preview/Acrobat) finds the edited word in the saved copy
 - [ ] Type a character not in the doc font (e.g. `→`) → clear error toast, no corrupt output
-- [ ] In a bold/italic/serif headline with a pruned subset font, type letters outside the subset → substituted words match the surrounding weight, slant, and serif style
+- [ ] In a bold/italic/serif headline with a pruned subset font, type letters outside the subset → substituted words match the surrounding weight, slant, and serif style, rendered in the bundled Georgia-like serif (not Times)
+- [ ] Type Latin-Extended text (e.g. `Świętokrzyska` or `Łódź`) into any paragraph → succeeds with the "substitute font was used" notice (was a hard reject before the bundled fonts); saved copy renders and searches correctly
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
 
 ## Scanned + OCR (scanned.pdf)

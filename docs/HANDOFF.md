@@ -45,8 +45,21 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
 
 ```
 viewer (DOM, src/viewer/)  ←Comlink→  engine worker (pure TS, src/engine/)
-  main.ts        UI, overlays, editors            worker.ts     API surface
-  viewer.css                                      document.ts   EditableDocument (orchestrator)
+  main.ts        entry: boot, drag-drop,          worker.ts     API surface
+                 empty state, auto-open opt-in    document.ts   EditableDocument (orchestrator)
+  engine.ts      Comlink handle to the worker
+  ui.ts          DOM refs, toast, banner
+  util.ts        geometry + color helpers (pure)
+  prefs.ts       localStorage UI preferences
+  state.ts       doc state, dirty/autosave, edit
+                 pipeline (applyEdit/applyHistory)
+  editors.ts     paragraph + OCR edit surfaces
+  images.ts      image select/drag/delete
+  render.ts      pdf.js pipeline, overlays, zoom
+  open-save.ts   openBytes / pickers / save-as
+  dialogs.ts     recents, restore bar, help tips
+  toolbar.ts     control wiring + shortcuts
+  viewer.css
                                                   content-stream/  lexer → parser → interpreter → writer
                                                   text-model/      paragraphs.ts (words/lines/paras)
                                                   fonts/           font-info.ts, truetype.ts, encoding.ts
@@ -92,7 +105,7 @@ geometry. pdf.js only renders and serves as an independent cross-check in tests.
 7. **CID font extension is trust-gated**: new chars are encoded via the
    embedded TrueType's own cmap (Identity-H ⇒ code == gid) only when the cmap
    agrees with existing ToUnicode samples — a reordered subset would draw
-   WRONG glyphs, which is worse than the standard-font fallback. On success,
+   WRONG glyphs, which is worse than the look-alike fallback. On success,
    ToUnicode + W arrays are flushed to the PDF (`flushFontExtensions`).
    Known wart: undo restores content streams but not font-dict mutations
    (harmless — unused mappings).
@@ -119,7 +132,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 90 tests, including the jsdom viewer harness
+`npx vitest run` — 94 tests, including the jsdom viewer harness
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:
@@ -137,7 +150,10 @@ round-trip, unsaved-edits warning, persistence. CI runs it as a separate job
 (gen:samples first — `public/samples/` is gitignored).
 
 Sample PDFs for manual testing: `npm run gen:samples` → `public/samples/`
-(born-digital, fake OCR sandwich, real embedded CID fonts). Manual test script
+(sample.pdf is a born-digital 2-page report with embedded PNG images — the
+"Try a sample" document; plus a fake OCR sandwich and real embedded CID
+fonts; images are drawn by a dependency-free PNG encoder in the script, so
+no binary assets live in the repo). Manual test script
 in `docs/manual-checklist.md`. In-browser verification pattern: drive the vite
 dev server (`viewer.html?file=/samples/…`) with browser automation, assert via
 DOM + canvas `getImageData` pixel counts.
@@ -160,12 +176,15 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
    (`EditableDocument.load(bytes, {lazy:true})` in the worker;
    `ensurePageReady`), so open cost scales with the first screen, not the
    document. Remaining ceiling: `pdfDoc.save()` is whole-document.
-3. Viewer is a ~1400-line monolith (`main.ts`) — now covered by the jsdom
-   harness + Playwright e2e, but still due for modularization (editors /
-   dialogs / toolbar). Gotcha that motivated the harness: a hoisted function
-   referencing a later `const` (TDZ) had the ReferenceError swallowed by its
-   own try/catch — module-scope startup code must run after the consts it
-   depends on.
+3. Viewer modularization done (July 2026): 12 modules, imports strictly
+   one-way (engine/util/prefs/ui → state → editors/images → render →
+   open-save → dialogs → toolbar → main). Two seams keep it acyclic: state's
+   injected `rerender` hooks (filled by render.ts) and the
+   `pdfedna:document-opened` event (open-save → dialogs' restore bar). Keep
+   imports pointing down this chain. Gotcha that motivated the viewer test
+   harness: a hoisted function referencing a later `const` (TDZ) had the
+   ReferenceError swallowed by its own try/catch — module-scope startup code
+   must run after the consts it depends on.
 4. CFF/Type1 fonts can't be extended (TrueType only); RTL/CJK/shaping out of
    scope; justified text re-emitted left-aligned; tagged-PDF structure tree
    not updated; signatures invalidated on save (full save, not incremental);
@@ -176,3 +195,16 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
    and, when metadata is scrubbed (munged news-site subsets zero familyClass
    AND PANOSE), a stem-glyph outline probe ('l'/'I' point count ≥ 10 ⇒ serif;
    `pointCountFor` in truetype.ts). Regression: test/fallback-style.test.ts.
+6. **Bundled look-alike fallbacks** (July 2026, `fonts/fallback-fonts.ts`):
+   the fallback ladder is original-font extension (CID trust gate) → bundled
+   look-alike → standard-14. Bundled faces: Gelasio (Georgia-metric serif)
+   and Liberation Sans (Arial-metric), 4 styles each, SIL OFL, shipped in
+   `public/fonts/fallback/` with their licenses. The viewer fetches them and
+   registers bytes over Comlink (`registerFallbackFonts`; the engine still
+   does zero I/O — node tests register from disk). Per-WORD tier choice in
+   `document.ts fallbackKeyFor`: bundled iff every char has a real glyph in
+   the face's own cmap (fontkit maps missing chars to .notdef — tofu — so
+   pdf-lib's encoder can't be the gate). Measurement reads the TTF's own
+   cmap+hmtx (`bundledWidth`) so unused faces are never embedded; emit
+   embeds lazily via pdf-lib+fontkit `{subset: true}` (fontkit is a RUNTIME
+   dependency now). Mono stays Courier. Regression: fallback-bundled.test.ts.

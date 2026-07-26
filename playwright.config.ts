@@ -6,6 +6,9 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
+  // generous expect timeout: the dev server cold-transforms the engine worker
+  // (pdf-lib + fontkit) on the first request, which can exceed the 5s default
+  expect: { timeout: 15_000 },
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
