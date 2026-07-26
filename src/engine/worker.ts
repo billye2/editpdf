@@ -2,11 +2,15 @@
 
 import * as Comlink from 'comlink';
 import { EditableDocument } from './document';
+import { registerFallbackFonts } from './fonts/fallback-fonts';
 import type { EngineAPI, EditOutcome, LoadOutcome, PageView, RGB } from '../shared/types';
 
 let doc: EditableDocument | null = null;
 
 const api: EngineAPI = {
+  async registerFallbackFonts(files: Record<string, Uint8Array>): Promise<void> {
+    registerFallbackFonts(files);
+  },
   async load(bytes: Uint8Array): Promise<LoadOutcome> {
     // lazy: page models build on first getPage, so huge PDFs open instantly
     const { doc: d, outcome } = await EditableDocument.load(bytes, { lazy: true });

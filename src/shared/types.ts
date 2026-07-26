@@ -82,6 +82,9 @@ export interface LoadOutcome {
 }
 
 export interface EngineAPI {
+  /** Register bundled look-alike fallback font files (key → TTF bytes) —
+   *  fire-and-forget at startup; editing works without it (standard-14 only). */
+  registerFallbackFonts(files: Record<string, Uint8Array>): Promise<void>;
   load(bytes: Uint8Array): Promise<LoadOutcome>;
   getPage(index: number): Promise<PageView>;
   editParagraph(

@@ -125,7 +125,7 @@ describe.skipIf(!haveFont)('CID font preservation on edit', () => {
     const result = await doc!.editParagraph(0, para.id, 'Quarterly Zebra');
     expect(result.status).toBe('ok');
     expect(result.usedFallback).toBe(true); // glyphs genuinely absent from the subset
-    expect(result.message).toMatch(/standard font was substituted/);
+    expect(result.message).toMatch(/substitute font was used/);
     // matched word must still be in the original font; text intact either way
     const { doc: doc2 } = await EditableDocument.load(result.bytes!);
     expect(doc2!.getPageView(0).paragraphs[0].text).toBe('Quarterly Zebra');

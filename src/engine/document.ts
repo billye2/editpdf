@@ -17,7 +17,9 @@ import * as pdfLib from 'pdf-lib';
 import { parseContent, type Op } from './content-stream/parser';
 import { writeContent, mkOp, num, name, str } from './content-stream/writer';
 import { interpret, apply, type RawRun, type Mat } from './content-stream/interpreter';
+import fontkit from '@pdf-lib/fontkit';
 import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type FontInfo } from './fonts/font-info';
+import { bundledKeyFor, bundledBytes, bundledCanEncode, bundledWidth, isBundledKey } from './fonts/fallback-fonts';
 import { parseTrueType } from './fonts/truetype';
 import { buildParagraphs, buildOcrWords, type ParaMeta, type OcrWordMeta } from './text-model/paragraphs';
 import { planReflow, type FontChoice, type Measurer } from './reflow/reflow';
@@ -46,7 +48,7 @@ interface PageState {
   paras: Map<string, ParaMeta>;
   ocrWords: Map<string, OcrWordMeta>;
   images: Map<string, ImagePlacement>;
-  stdFontRes: Map<string, string>; // StandardFonts value -> resource name in this page
+  stdFontRes: Map<string, string>; // fallback font key (StandardFonts value or bundled key) -> resource name in this page
 }
 
 interface UndoEntry {
@@ -82,6 +84,7 @@ export class EditableDocument {
     const doc = new EditableDocument();
     try {
       doc.pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false });
+      doc.pdfDoc.registerFontkit(fontkit); // bundled fallback fonts embed as subset TTFs
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const encrypted = /encrypt/i.test(msg);
@@ -296,17 +299,39 @@ export class EditableDocument {
     };
   }
 
-  /** Embed (once) the standard font matched to original font `forRes`, return its resource name on the page. */
-  private async ensureStdFont(st: PageState, forRes: string): Promise<{ resName: string; font: PDFFont }> {
+  /** Which fallback tier serves `text` for this style: a bundled look-alike
+   *  face when one is registered AND has every glyph, else the standard-14
+   *  font. Measurement and emit both route through this so they can never
+   *  disagree about which font a word lands in. */
+  private fallbackKeyFor(style: ReturnType<typeof styleFromName>, text: string): string {
+    const bk = bundledKeyFor(style);
+    if (bk && bundledCanEncode(bk, text + ' ')) return bk;
+    return stdFontFor(style);
+  }
+
+  private async embedFallback(key: string): Promise<PDFFont> {
+    let font = this.stdFonts.get(key);
+    if (!font) {
+      font = isBundledKey(key)
+        ? await this.pdfDoc.embedFont(bundledBytes(key), { subset: true })
+        : await this.pdfDoc.embedFont(key as StandardFonts);
+      this.stdFonts.set(key, font);
+    }
+    return font;
+  }
+
+  /** Embed (once) the fallback font matched to original font `forRes` and able
+   *  to render `text`, return its resource name on the page. */
+  private async ensureFallbackFont(
+    st: PageState,
+    forRes: string,
+    text: string,
+  ): Promise<{ resName: string; font: PDFFont }> {
     const orig = st.fonts.get(forRes);
     const style = orig?.style ?? styleFromName(forRes);
-    const std = stdFontFor(style);
-    let font = this.stdFonts.get(std);
-    if (!font) {
-      font = await this.pdfDoc.embedFont(std);
-      this.stdFonts.set(std, font);
-    }
-    let resName = st.stdFontRes.get(std);
+    const key = this.fallbackKeyFor(style, text);
+    const font = await this.embedFallback(key);
+    let resName = st.stdFontRes.get(key);
     if (!resName) {
       resName = `EPDF${this.nextResIdx++}`;
       // ensure a direct, page-level Resources dict we can safely extend
@@ -324,7 +349,7 @@ export class EditableDocument {
         (res as PDFDict).set(PDFName.of('Font'), fontDict as PDFDict);
       }
       (fontDict as PDFDict).set(PDFName.of(resName), font.ref);
-      st.stdFontRes.set(std, resName);
+      st.stdFontRes.set(key, resName);
     }
     return { resName, font };
   }
@@ -346,31 +371,22 @@ export class EditableDocument {
   }
 
   private async measurerFor(st: PageState): Promise<Measurer> {
-    // pre-resolve std fonts lazily per original res
-    const stdCache = new Map<string, PDFFont>();
-    const getStd = (forRes: string): PDFFont => {
-      let f = stdCache.get(forRes);
-      if (!f) {
-        const style = st.fonts.get(forRes)?.style ?? styleFromName(forRes);
-        const stdName = stdFontFor(style);
-        f = this.stdFonts.get(stdName)!;
-        stdCache.set(forRes, f);
-      }
-      return f;
-    };
-    // make sure all potentially needed std fonts exist (embed is async, measurement is sync)
-    const styles = new Set<string>();
-    for (const f of st.fonts.values()) styles.add(stdFontFor(f.style));
-    styles.add(StandardFonts.Helvetica);
-    for (const s of styles) {
-      if (!this.stdFonts.has(s)) this.stdFonts.set(s, await this.pdfDoc.embedFont(s as StandardFonts));
-    }
+    // make sure all potentially needed fallback fonts exist — both tiers per
+    // style, since the tier is chosen per WORD (embed is async, measurement
+    // must be sync)
+    const keys = new Set<string>();
+    for (const f of st.fonts.values()) keys.add(stdFontFor(f.style));
+    keys.add(StandardFonts.Helvetica);
+    for (const k of keys) await this.embedFallback(k);
     return {
       measureOrig: (res, text, size) => st.fonts.get(res)?.widthOfText(text, size) ?? null,
       measureStd: (forRes, text, size) => {
         const style = st.fonts.get(forRes)?.style ?? styleFromName(forRes);
-        const stdName = stdFontFor(style);
-        const f = this.stdFonts.get(stdName) ?? getStd(forRes);
+        const key = this.fallbackKeyFor(style, text);
+        // bundled tier measures from its own cmap/hmtx — no embed until a
+        // word actually lands in the font at emit time
+        if (isBundledKey(key)) return bundledWidth(key, text, size);
+        const f = this.stdFonts.get(key)!;
         return this.stdWidth(f, text, size);
       },
     };
@@ -529,7 +545,7 @@ export class EditableDocument {
           encode: (t) => f.encode(t),
         });
       } else {
-        const { resName, font } = await this.ensureStdFont(st, w.font.forRes);
+        const { resName, font } = await this.ensureFallbackFont(st, w.font.forRes, w.text);
         rwords.push({
           text: w.text,
           x: w.x,
@@ -600,7 +616,7 @@ export class EditableDocument {
       msgs.push(`Text was shrunk to ${Math.round(plan.scale * 100)}% to fit the paragraph.`);
     if (plan.usedFallback)
       msgs.push(
-        "Some characters aren't available in the document's embedded (subset) font — a similar standard font was substituted for those words.",
+        "Some characters aren't available in the document's embedded (subset) font — a similar substitute font was used for those words.",
       );
 
     return {
@@ -639,7 +655,7 @@ export class EditableDocument {
     const text = newText.trim();
     if (!text) return { status: 'error', message: 'Replacement text cannot be empty.' };
 
-    const { resName, font } = await this.ensureStdFont(st, run.fontRes);
+    const { resName, font } = await this.ensureFallbackFont(st, run.fontRes, text);
     const bytes = this.stdEncode(font, text);
     if (!bytes) {
       return { status: 'error', message: 'The replacement text contains characters the fallback font cannot render.' };

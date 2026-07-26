@@ -14,12 +14,12 @@
     "release": "node scripts/release.mjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "comlink": "^4.4.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38"
   },
   "devDependencies": {
-    "@pdf-lib/fontkit": "^1.1.1",
     "@playwright/test": "^1.62.0",
     "@types/chrome": "^0.0.287",
     "@types/node": "^26.1.1",
