@@ -1,9 +1,9 @@
-# EditPDF — Maintainer Handoff
+# PDF Edna (formerly EditPDF) — Maintainer Handoff
 
 Chrome extension (MV3) for true PDF text and image editing, fully
 client-side. Current version: see `package.json` (bumped by every release).
 Repo: `github.com/billye2/editpdf`
-(private). CI runs type-check + tests + build on every push
+(private). CI runs type-check + tests + build, plus a Playwright e2e job, on every push
 (`.github/workflows/ci.yml`). `npm run release` bumps, builds, zips the
 Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
 
@@ -32,7 +32,14 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   leave a scaled CTM dangling). Other annotation types are untouched.
 - Save is always Save As (File System Access picker, `-edited` suggested name;
   falls back to a browser download) — the original file is never overwritten.
-  There is no separate Download button.
+  There is no separate Download button. Opening a PDF over a document with
+  unsaved edits (drop/picker/recents/sample) asks for confirmation first.
+- Viewer UI (July 2026): "Sunny" restyle per the approved design in
+  `docs/EditPDF UI style directions.zip` (Nunito/Baloo 2 bundled in
+  `public/fonts/` — extension pages must not hit CDNs). "?" button cycles
+  help tips through the toast; thumbtack icon-button next to Save PDF opens
+  previously-opened files; "Show boxes" switch is always visible and
+  persisted (formerly `?debug`). Keyboard: ⌘/Ctrl O · S · Z · ⇧Z · +/− · 0.
 
 ## Architecture
 
@@ -112,13 +119,22 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 79 tests. Some groups auto-skip off-macOS/CI:
+`npx vitest run` — 90 tests, including the jsdom viewer harness
+(`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
+Worker mocked; localStorage must be stubbed at test-file top level — vitest
+detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:
 - `fonts-cid.test.ts` needs `/System/Library/Fonts/Supplemental/Arial Bold.ttf`.
 - `per-glyph-pdf.test.ts`, parts of `overflow.test.ts`, and
   `fallback-style.test.ts` need `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
   user document** (gitignored via `test/corpus-*.pdf` and `test/*.pdf`; do not
   commit user PDFs).
 - `persist.test.ts` runs against `fake-indexeddb` (dev dependency).
+
+`npm run test:e2e` — Playwright suite (`e2e/viewer.spec.ts`, Chromium against
+the vite dev server on port 4273, real engine + real pdf.js): empty state,
+sample load, fit-page-while-scrolled regression, paragraph edit→undo→redo
+round-trip, unsaved-edits warning, persistence. CI runs it as a separate job
+(gen:samples first — `public/samples/` is gitignored).
 
 Sample PDFs for manual testing: `npm run gen:samples` → `public/samples/`
 (born-digital, fake OCR sandwich, real embedded CID fonts). Manual test script
@@ -144,7 +160,12 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
    (`EditableDocument.load(bytes, {lazy:true})` in the worker;
    `ensurePageReady`), so open cost scales with the first screen, not the
    document. Remaining ceiling: `pdfDoc.save()` is whole-document.
-3. Viewer is a ~800-line monolith (`main.ts`) with no automated UI tests.
+3. Viewer is a ~1400-line monolith (`main.ts`) — now covered by the jsdom
+   harness + Playwright e2e, but still due for modularization (editors /
+   dialogs / toolbar). Gotcha that motivated the harness: a hoisted function
+   referencing a later `const` (TDZ) had the ReferenceError swallowed by its
+   own try/catch — module-scope startup code must run after the consts it
+   depends on.
 4. CFF/Type1 fonts can't be extended (TrueType only); RTL/CJK/shaping out of
    scope; justified text re-emitted left-aligned; tagged-PDF structure tree
    not updated; signatures invalidated on save (full save, not incremental);

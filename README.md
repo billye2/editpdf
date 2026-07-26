@@ -1,6 +1,6 @@
-# EditPDF
+# PDF Edna — PDF Text Editing Made Easy
 
-A Chrome extension (Manifest V3) that edits the **actual text** of a PDF — including scanned PDFs that have an OCR text layer — entirely client-side. When an edit changes text length (e.g. 3 characters replace 1), the paragraph **reflows** inside its original bounding box.
+A Chrome extension (Manifest V3) that edits the **actual text** of a PDF — including scanned PDFs that have an OCR text layer — entirely client-side. When an edit changes text length (e.g. 3 characters replace 1), the paragraph **reflows** inside its original bounding box. (Internal identifiers and the repo keep the original working name `editpdf`.)
 
 Maintainers: start with **[docs/HANDOFF.md](docs/HANDOFF.md)** — architecture, invariants, and release process.
 
@@ -18,13 +18,14 @@ Stack: [pdf.js](https://mozilla.github.io/pdf.js/) for rendering, a custom conte
 
 ```sh
 npm install
-npm test              # engine test suite (round-trip, geometry, reflow, e2e edits)
+npm test              # engine + viewer-DOM test suite (round-trip, geometry, reflow, UI wiring)
+npm run test:e2e      # Playwright end-to-end suite (real engine + rendering in Chromium)
 npm run gen:samples   # writes public/samples/{sample,scanned,cid-fonts}.pdf
 npm run dev           # vite dev server — open /viewer.html?file=/samples/sample.pdf
 npm run build         # builds the extension into dist/
 ```
 
-CI (GitHub Actions) runs type-check, tests, and the extension build on every push. Tests that need macOS system fonts or local-only corpus PDFs skip automatically elsewhere.
+CI (GitHub Actions) runs type-check, tests, the extension build, and the Playwright e2e suite on every push. Tests that need macOS system fonts or local-only corpus PDFs skip automatically elsewhere.
 
 ## Versioning & releases
 
@@ -41,7 +42,7 @@ npm run release -- --dry-run  # run the checks, touch nothing
 1. `npm run build`
 2. Open `chrome://extensions`, enable **Developer mode**
 3. **Load unpacked** → select the `dist/` folder
-4. Click the EditPDF toolbar button (or navigate to any `.pdf` URL — navigation is redirected to the viewer, best-effort)
+4. Click the PDF Edna toolbar button (or navigate to any `.pdf` URL — navigation is redirected to the viewer, best-effort)
 
 ## Using it
 
@@ -49,12 +50,13 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text. The **✕** at the edit box corner deletes the whole paragraph.
 - **Images**: hover shows purple outlines; **drag** an image to move it, **click** to select and delete it (✕ button or Delete key).
 - **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
-- On scanned+OCR pages, words show **dashed amber boxes**; click one to patch-edit it (with its own ink-color picker).
-- **Save As** opens a save dialog (suggesting `<name>-edited.pdf`) — the original file is never overwritten. **Undo/Redo** step through edits one at a time.
+- On scanned+OCR pages, words show **dashed purple boxes**; click one to patch-edit it (with its own ink-color picker).
+- **Save PDF** opens a save dialog (suggesting `<name>-edited.pdf`) — the original file is never overwritten. **Undo/Redo** step through edits one at a time.
 - **Crash recovery**: edits are snapshotted locally (IndexedDB); if the tab closes before you save, the viewer offers to restore them on next open. Closing with unsaved edits also warns first.
-- **Recents**: reopen recently used files from the toolbar (content-hashed cache, max 10 files / 100 MB, pinnable, with an off switch). Everything stays on your device — see `PRIVACY.md`.
+- **Previously opened files**: the thumbtack button next to Save PDF reopens recently used files (content-hashed cache, max 10 files / 100 MB, pinnable, with an off switch). Everything stays on your device — see `PRIVACY.md`.
+- The **?** button cycles through usage tips.
 - The extension installs with **no site access**; automatic opening of `.pdf` links is an explicit opt-in on the start screen and can be revoked in `chrome://extensions`.
-- **Debug boxes** (maintainer feature, hidden by default — open the viewer with `?debug` to reveal the toolbar checkbox) draws every detected text run (green = invisible OCR layer).
+- **Show boxes** (toolbar switch, persisted) outlines every detected text run (green = invisible OCR layer).
 
 ## Known limitations (v1)
 

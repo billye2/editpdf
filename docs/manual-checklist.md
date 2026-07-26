@@ -17,7 +17,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
 
 ## Scanned + OCR (scanned.pdf)
-- [ ] Dashed amber boxes on each OCR word; toast announces scan mode
+- [ ] Dashed purple boxes on each OCR word; toast announces scan mode
 - [ ] Click `10482`, type a replacement, Enter → smudge covered by patch, crisp new text drawn
 - [ ] Saved copy: old word not searchable, new word searchable
 - [ ] Replacement longer than original → warning toast about patch width
@@ -44,23 +44,28 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Saved copy opens in Preview/Chrome with the image moved/removed as expected
 
 ## Annotations
-- [ ] Add text to a PDF in Edge (… menu → Add text), open it in EditPDF → the added text has a paragraph outline and is editable
+- [ ] Add text to a PDF in Edge (… menu → Add text), open it in PDF Edna → the added text has a paragraph outline and is editable
 - [ ] After Save As, the FreeText annotation is gone (flattened); links in the document still work
 
 ## Persistence & permissions
 - [ ] Edit a doc, close the tab → warning prompt; reopen viewer → restore bar offers the unsaved edits; Restore brings them back
 - [ ] Discard on the restore bar, then reload → no offer reappears
 - [ ] Save As after edits → no unload warning, no restore offer on next open
-- [ ] Recents: opened files appear (thumbnail, page count, size); click reopens; pin survives eviction; Clear all empties; off-switch stops new entries
+- [ ] Previously opened files (thumbtack button next to Save PDF): opened files appear (thumbnail, page count, size); click reopens; pin survives eviction; Clear all empties; off-switch stops new entries
+- [ ] With unsaved edits, opening another PDF (drop, picker, thumbtack, sample) → confirm dialog; Cancel keeps the edited document, OK replaces it
 - [ ] Fresh install: no site access listed in chrome://extensions; .pdf URL navigation does NOT redirect
 - [ ] Click "Enable auto-open" on the start screen → permission prompt; after grant, .pdf URL navigation redirects into the viewer
 - [ ] Revoke site access in chrome://extensions → redirect stops (rule removed), extension still opens files via picker/drop
 - [ ] Open a 60+ page PDF → first screen paints immediately; scrolling renders pages as they approach; zoom re-renders only visible pages
 
 ## General
-- [ ] Zoom in/out re-renders pages and overlays stay aligned
+- [ ] Header shows the PDF Edna wordmark + tagline; status pill reads "Nothing open yet" empty / "name · N pages" with a green dot when loaded
+- [ ] Empty state: floating page-card cluster animates; "Try a sample" loads the bundled sample; dropping a non-PDF shows an inline message in the drop zone (no dialog)
+- [ ] "?" button cycles through different tips in the toast
+- [ ] Zoom in/out re-renders pages and overlays stay aligned; ⌘/Ctrl +/−/0 and ⌘/Ctrl O/S/Z/⇧Z shortcuts work
 - [ ] Fit width fills the window width; Fit page shows the whole page; overlays stay aligned after both
-- [ ] Debug boxes (open the viewer with `?debug` to reveal the toolbar checkbox): red boxes on visible runs, green on OCR layer
+- [ ] Fit page while zoomed in AND scrolled down → the page you were reading ends up fully visible below the toolbar (regression)
+- [ ] Show boxes switch: red boxes on visible runs, green on OCR layer; state survives a reload
 - [ ] Encrypted PDF → banner, view-only, no crash
 - [ ] Image-only scan (no text layer) → "no editable text layer" banner
 - [ ] Navigate to a real `.pdf` URL → redirected into the viewer (best-effort)
