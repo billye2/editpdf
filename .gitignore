@@ -11,3 +11,7 @@ public/samples/
 test/corpus-*.pdf
 test/*.pdf
 .DS_Store
+
+# playwright
+test-results/
+playwright-report/
