@@ -427,6 +427,31 @@ export class EditableDocument {
     }
   }
 
+  /** Free vertical space (page units, y-up) between a paragraph's bottom edge
+   *  and the nearest visible content below it that overlaps horizontally —
+   *  the room overflow lines may grow into without covering anything. Only
+   *  runs and image placements are modeled (paths/rules are not), so keep a
+   *  safety margin. */
+  private freeHeightBelow(st: PageState, para: ParaMeta): number {
+    const left = para.bbox.x;
+    const right = para.bbox.x + para.bbox.w;
+    const bottom = para.bbox.y;
+    let highestTopBelow = 36; // page bottom margin when nothing is below
+    const consider = (bb: { x: number; y: number; w: number; h: number }) => {
+      const top = bb.y + bb.h;
+      if (top > bottom + 1) return; // not below (or the paragraph itself)
+      if (bb.x + bb.w < left || bb.x > right) return; // no horizontal overlap
+      if (top > highestTopBelow) highestTopBelow = top;
+    };
+    for (const r of st.runs) {
+      if (para.opIndices.has(r.opIndex)) continue; // the paragraph's own runs
+      if (r.renderMode === 3 || !r.text.trim()) continue; // invisible OCR layer
+      consider({ x: r.baseline.x, y: r.baseline.y + r.descent, w: r.endX - r.baseline.x, h: r.ascent - r.descent });
+    }
+    for (const img of st.images.values()) consider(img.bbox);
+    return Math.max(0, bottom - highestTopBelow - 4);
+  }
+
   private snapshot(pageIndex: number): void {
     // edit paths ensure the page model exists before snapshotting
     this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex]!.ops] });
@@ -453,9 +478,15 @@ export class EditableDocument {
     const measurer = await this.measurerFor(st);
     // Single-line paragraphs (headers, captions) may grow toward the page's
     // text-area right edge instead of being trapped in their own tight bbox.
-    const opts: { maxWidth?: number; baseColor?: RGB; colorRanges?: import('../shared/types').ColorRange[] } = {
+    const opts: {
+      maxWidth?: number;
+      extraHeight?: number;
+      baseColor?: RGB;
+      colorRanges?: import('../shared/types').ColorRange[];
+    } = {
       baseColor: color,
       colorRanges,
+      extraHeight: this.freeHeightBelow(st, para),
     };
     if (para.lines.length === 1) {
       const pageRight = Math.max(...[...st.paras.values()].map((pp) => pp.bbox.x + pp.bbox.w));
@@ -560,9 +591,7 @@ export class EditableDocument {
     this.rebuildStream(st);
 
     const msgs: string[] = [];
-    if (plan.status === 'overflow-flagged')
-      msgs.push('The new text does not fit the paragraph box even at 90% size — it may overlap content below.');
-    else if (plan.status === 'overflow-shrunk')
+    if (plan.status === 'overflow-shrunk')
       msgs.push(`Text was shrunk to ${Math.round(plan.scale * 100)}% to fit the paragraph.`);
     if (plan.usedFallback)
       msgs.push(

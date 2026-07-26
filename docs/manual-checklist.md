@@ -6,6 +6,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Open via toolbar button → file picker; page renders, 3 paragraph outlines on hover
 - [ ] Click body paragraph → textarea appears seeded with paragraph text
 - [ ] Replace a short word with a long one (`fox` → `velociraptor`), ⌘+Enter → paragraph reflows inside its box, line count may grow
+- [ ] Paste far too much text into a paragraph with content right below it → clear "would overlap" error toast, document unchanged (no garbled overlap)
 - [ ] Escape cancels without changes
 - [ ] Undo restores the original text; Redo re-applies it; a new edit after Undo disables Redo
 - [ ] ✕ on the paragraph edit box deletes the whole paragraph; neighbors don't shift; undo restores it

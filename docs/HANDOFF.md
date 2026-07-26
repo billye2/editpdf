@@ -7,8 +7,12 @@ type-check + tests + build on every push (`.github/workflows/ci.yml`).
 ## What it does
 
 - **Born-digital PDFs**: click a paragraph → edit its text in place → the
-  paragraph reflows inside its original box (font shrink to a 90% floor on
-  overflow, then flagged). Word-level and paragraph-level text coloring.
+  paragraph reflows inside its original box plus any measured free space
+  below it (font shrink to a 90% floor on overflow). Edits that would
+  overlap the content below are REJECTED with an error — overflow lines are
+  never drawn over other content (`freeHeightBelow` in document.ts +
+  `extraHeight` in reflow.ts; regression: test/overflow.test.ts). Word-level
+  and paragraph-level text coloring. Paragraph delete via the edit box ✕.
 - **Scanned PDFs with an OCR layer**: click a word → a background-matched
   patch covers the original pixels and crisp replacement text (which becomes
   the new searchable text layer) is drawn on top.

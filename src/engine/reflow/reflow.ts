@@ -1,7 +1,9 @@
 // Within-paragraph reflow: word-diffs the edited text against the original,
 // assigns fonts (original where a word survives, neighbor's font for new
-// words), then greedily re-wraps into the paragraph's original bounding box.
-// Overflow shrinks the font down to a 90% floor, then flags.
+// words), then greedily re-wraps into the paragraph's original bounding box
+// (plus any caller-measured free space below). Overflow shrinks the font down
+// to a 90% floor; text that still doesn't fit is rejected — overflow lines
+// are never placed on top of other content.
 
 import type { ParaMeta } from '../text-model/paragraphs';
 
@@ -35,7 +37,7 @@ export interface PlacedWord {
 export interface ReflowPlan {
   placed: PlacedWord[];
   scale: number;
-  status: 'ok' | 'overflow-shrunk' | 'overflow-flagged';
+  status: 'ok' | 'overflow-shrunk';
   usedFallback: boolean;
 }
 
@@ -75,6 +77,11 @@ function lcsMatch(oldWords: string[], newWords: string[]): (number | null)[] {
 export interface ReflowOpts {
   /** Wrap width override in page units (e.g. let a single-line header grow toward the text-area right edge). */
   maxWidth?: number;
+  /** Free vertical space (page units) below the paragraph box that overflow
+   *  lines may legitimately occupy — measured by the caller from real page
+   *  geometry. Text that needs more than box + extraHeight is REJECTED
+   *  instead of being placed on top of the content below. */
+  extraHeight?: number;
   /** Whole-paragraph color override (loses to colorRanges where they overlap). */
   baseColor?: RGB;
   /** Character ranges of newText with explicit colors (word granularity: any overlap colors the whole word). */
@@ -178,7 +185,7 @@ export function planReflow(
     return lines;
   };
 
-  const availHeight = para.bbox.h + para.leading * 0.35;
+  const availHeight = para.bbox.h + para.leading * 0.35 + (opts?.extraHeight ?? 0);
   let scale = 1;
   let lines = tryLayout(scale);
   let status: ReflowPlan['status'] = 'ok';
@@ -189,7 +196,15 @@ export function planReflow(
       scale = s;
       if (heightAt(s, lines.length) <= availHeight) break;
     }
-    status = heightAt(scale, lines.length) <= availHeight ? 'overflow-shrunk' : 'overflow-flagged';
+    if (heightAt(scale, lines.length) > availHeight) {
+      // Never place lines on top of the content below — that renders as
+      // interleaved/garbled text (the original shipped-bug this guards).
+      return {
+        error:
+          'The new text is too long to fit this paragraph and the free space below it — it would overlap other content. Shorten the text, or remove the content below first.',
+      };
+    }
+    status = 'overflow-shrunk';
   }
 
   // place words
