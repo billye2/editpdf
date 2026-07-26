@@ -179,13 +179,10 @@ Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
 
 ## Known limitations / next work (rough priority)
 
-0. **Annotations — PLANNED FOR THE NEXT RELEASE** (user decision, July 2026):
-   let users ADD annotations (the current annotations.ts only flattens
-   existing FreeText at load). Scope to be designed — likely highlights,
-   text notes/comments, and maybe shapes. Groundwork that exists: the
-   annotation parsing/geometry in `src/engine/annotations.ts` (BBox→Rect
-   transform, resource merging) and the overlay/editor patterns in the
-   viewer. Keep the flatten-at-load behavior for FreeText intact.
+0. **Annotation ADDING — DROPPED** (user decision, July 2026): annotation
+   tools are freely available in existing viewers, so building one here
+   adds no differentiated value. Do not re-propose. The flatten-at-load
+   behavior for existing FreeText annotations stays as-is.
 1. **Form XObject recursion** — text and images inside Form XObjects are
    invisible to the engine (Illustrator/InDesign PDFs). Largest real-world
    coverage gap.
