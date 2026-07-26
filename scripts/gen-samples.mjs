@@ -212,7 +212,13 @@ function photoPng() {
   y -= 14;
   p2.drawImage(photo, { x: 72, y: y - 212, width: 371, height: 212 });
   y -= 212 + 16;
-  p2.drawText('Figure 2 — The Halvorsen fulfillment site, photographed at first light in May.', { x: 72, y, size: 9, font, color: gray });
+  p2.drawText('Figure 2 — The Halvorsen fulfillment site, photographed at first light in May.', {
+    x: 72,
+    y,
+    size: 9,
+    font,
+    color: gray,
+  });
 
   y -= 34;
   p2.drawText('Outlook', { x: 72, y, size: 13, font: bold, color: ink });
@@ -273,8 +279,12 @@ function photoPng() {
   lines.push('ET');
   const stream = ctx.flateStream(lines.join('\n'));
   const ref = ctx.register(stream);
+  // Contents may already be an array — append, don't nest ([[6 0 R] 7 0 R]
+  // is invalid and pdf.js drops the nested element, blanking the "scan")
   const existing = page.node.get(PDFName.of('Contents'));
-  page.node.set(PDFName.of('Contents'), ctx.obj([existing, ref]));
+  const resolved = ctx.lookup(existing);
+  if (resolved?.constructor?.name === 'PDFArray') resolved.push(ref);
+  else page.node.set(PDFName.of('Contents'), ctx.obj([existing, ref]));
   const resources = page.node.Resources();
   const fontDict = resources.lookup(PDFName.of('Font'));
   fontDict.set(PDFName.of('FOCR'), fontRef);
@@ -283,8 +293,7 @@ function photoPng() {
 
 {
   // 1×1 PNG scaled up per placement — enough to drag/delete visibly
-  const TINY_PNG_B64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const TINY_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const doc = await PDFDocument.create();
   const page = doc.addPage([612, 792]);
   const font = await doc.embedFont(StandardFonts.Helvetica);

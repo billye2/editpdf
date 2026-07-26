@@ -20,10 +20,7 @@ export interface ImagePlacementSpec {
 }
 
 /** One embedded PNG drawn at each placement (same XObject, multiple Do ops). */
-export async function makeImagePdf(
-  placements: ImagePlacementSpec[],
-  opts?: { withText?: boolean },
-): Promise<Uint8Array> {
+export async function makeImagePdf(placements: ImagePlacementSpec[], opts?: { withText?: boolean }): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([612, 792]);
   const img = await doc.embedPng(tinyPngBytes());
@@ -100,7 +97,10 @@ export async function makeParagraphPdf(): Promise<Uint8Array> {
     'sun sets slowly behind the tall mountains in the west',
     'casting long shadows over the quiet valley below.',
   ];
-  const lines2 = ['A second paragraph sits here after a clear gap and', 'should be detected as separate from the first one.'];
+  const lines2 = [
+    'A second paragraph sits here after a clear gap and',
+    'should be detected as separate from the first one.',
+  ];
   let y = 700;
   for (const line of lines1) {
     page.drawText(line, { x: 72, y, size: 12, font });
@@ -140,9 +140,12 @@ export async function makeOcrPdf(): Promise<Uint8Array> {
   const ctx = doc.context;
   const stream = ctx.flateStream(content);
   const ref = ctx.register(stream);
+  // Contents may already be an array — append, don't nest (a nested array is
+  // invalid; pdf.js drops the inner element and blanks the "scan" layer)
   const existing = page.node.get(PDFName.of('Contents'));
-  const arr = ctx.obj([existing, ref]);
-  page.node.set(PDFName.of('Contents'), arr);
+  const resolved = ctx.lookup(existing);
+  if (resolved instanceof PDFArray) resolved.push(ref);
+  else page.node.set(PDFName.of('Contents'), ctx.obj([existing, ref]));
 
   // register the OCR font resource
   const resources = page.node.Resources?.() ?? undefined;
