@@ -8,9 +8,10 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { engine } from './engine';
 import { toolbar, pagesEl } from './ui';
 import { rectToCss, cssPx } from './util';
-import { doc, pageUIs, baseDims, rerender } from './state';
+import { doc, pageUIs, baseDims, rerender, applyEdit } from './state';
 import { beginParagraphEdit, beginOcrEdit } from './editors';
 import { wireImageBox, dropImageSelectionForPage } from './images';
+import { wireDragToMove } from './drag';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -115,10 +116,10 @@ export function buildOverlay(index: number): void {
     const box = document.createElement('div');
     box.className = 'para-box';
     Object.assign(box.style, cssPx(rectToCss(para.bbox, ui.viewport)));
-    box.title = 'Click to edit this paragraph';
-    box.addEventListener('click', (e) => {
-      e.stopPropagation();
-      beginParagraphEdit(index, para);
+    box.title = 'Click to edit · drag to move';
+    wireDragToMove(box, ui, {
+      onClick: () => beginParagraphEdit(index, para),
+      onDrop: (dx, dy) => void applyEdit(() => engine.moveParagraph(index, para.id, dx, dy), index),
     });
     ui.overlay.append(box);
   }

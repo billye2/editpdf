@@ -734,9 +734,22 @@ button:disabled {
   border-radius: 2px;
 }
 
+.para-box {
+  touch-action: none;
+}
+
 .para-box:hover {
   border-color: rgba(61, 139, 253, 0.8);
   background: rgba(61, 139, 253, 0.06);
+}
+
+.para-box.dragging {
+  cursor: grabbing;
+  border-color: rgba(61, 139, 253, 0.8);
+  background: rgba(61, 139, 253, 0.06);
+  opacity: 0.85;
+  box-shadow: 0 2px 10px rgba(46, 42, 38, 0.35);
+  z-index: 5;
 }
 
 .ocr-box {

@@ -36,6 +36,10 @@ const api: EngineAPI = {
     if (!doc) throw new Error('No document loaded');
     return doc.deleteParagraph(pageIndex, paragraphId);
   },
+  async moveParagraph(pageIndex: number, paragraphId: string, dx: number, dy: number): Promise<EditOutcome> {
+    if (!doc) throw new Error('No document loaded');
+    return doc.moveParagraph(pageIndex, paragraphId, dx, dy);
+  },
   async editOcrWord(
     pageIndex: number,
     runId: string,

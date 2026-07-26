@@ -65,9 +65,21 @@ export interface DoPlacement {
   ctm: Mat;
 }
 
+/** Matrix snapshot at a show op (Tj/TJ/'/"), keyed by op index. Recorded for
+ *  every show op — even empty strings and numbers-only TJs — because the
+ *  translate-only move path needs to pin ANY op whose position depends on a
+ *  tm chain it disturbed. Matrices are never mutated in place by the
+ *  interpreter (always reassigned), so storing references is safe. */
+export interface ShowOpGeom {
+  tmAtShow: Mat; // tm when the first glyph would paint (post-leading for '/")
+  tlmAfter: Mat; // tlm after the op completes (shows never advance tlm)
+  ctm: Mat; // CTM in effect at the op
+}
+
 export interface InterpretResult {
   runs: RawRun[];
   doPlacements: DoPlacement[];
+  showOps: Map<number, ShowOpGeom>;
 }
 
 const numArg = (v: PdfVal | undefined, d = 0): number => (v && v.k === 'num' ? v.v : d);
@@ -75,6 +87,7 @@ const numArg = (v: PdfVal | undefined, d = 0): number => (v && v.k === 'num' ? v
 export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretResult {
   const runs: RawRun[] = [];
   const doPlacements: DoPlacement[] = [];
+  const showOps = new Map<number, ShowOpGeom>();
   let inTextObject = false;
 
   let ctm: Mat = IDENTITY;
@@ -226,11 +239,13 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretRes
         renderMode = numArg(args[0]);
         break;
       case 'Tj':
+        showOps.set(opIndex, { tmAtShow: tm, tlmAfter: tlm, ctm });
         if (args[0]?.k === 'str') showString(args[0].bytes, opIndex, 0, 'Tj');
         break;
       case "'":
         tlm = mul(translate(0, -leading), tlm);
         tm = tlm;
+        showOps.set(opIndex, { tmAtShow: tm, tlmAfter: tlm, ctm });
         if (args[0]?.k === 'str') showString(args[0].bytes, opIndex, 0, 'quote');
         break;
       case '"':
@@ -238,9 +253,11 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretRes
         charSpacing = numArg(args[1]);
         tlm = mul(translate(0, -leading), tlm);
         tm = tlm;
+        showOps.set(opIndex, { tmAtShow: tm, tlmAfter: tlm, ctm });
         if (args[2]?.k === 'str') showString(args[2].bytes, opIndex, 0, 'dblquote');
         break;
       case 'TJ': {
+        showOps.set(opIndex, { tmAtShow: tm, tlmAfter: tlm, ctm });
         const arr = args[0];
         if (arr?.k === 'arr') {
           for (let e = 0; e < arr.items.length; e++) {
@@ -285,5 +302,5 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretRes
         break; // paths, inline images, shading — irrelevant to the model
     }
   }
-  return { runs, doPlacements };
+  return { runs, doPlacements, showOps };
 }

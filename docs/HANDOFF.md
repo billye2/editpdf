@@ -16,6 +16,11 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   never drawn over other content (`freeHeightBelow` in document.ts +
   `extraHeight` in reflow.ts; regression: test/overflow.test.ts). Word-level
   and paragraph-level text coloring. Paragraph delete via the edit box ✕.
+  Paragraphs can also be **dragged to move** (translate-only: kerning,
+  justification, fonts, and paint order are untouched — see invariant 11).
+  Free placement like images — no destination overlap check; dropping flush
+  against same-styled text may merge the outlines on the next render
+  (paragraph detection is heuristic and generation-scoped).
 - **Scanned PDFs with an OCR layer**: click a word → a background-matched
   patch covers the original pixels and crisp replacement text (which becomes
   the new searchable text layer) is drawn on top.
@@ -55,6 +60,8 @@ viewer (DOM, src/viewer/)  ←Comlink→  engine worker (pure TS, src/engine/)
                  pipeline (applyEdit/applyHistory)
   editors.ts     paragraph + OCR edit surfaces
   images.ts      image select/drag/delete
+  drag.ts        shared drag-to-move machinery
+                 (images + paragraphs)
   render.ts      pdf.js pipeline, overlays, zoom
   open-save.ts   openBytes / pickers / save-as
   dialogs.ts     recents, restore bar, help tips
@@ -125,6 +132,23 @@ geometry. pdf.js only renders and serves as an independent cross-check in tests.
     drops (the sample's whole "scan" layer rendered blank) while our engine
     tolerates it, so no test caught it. Look up the existing value and `push`
     into the array (see gen-samples.mjs / test/helpers.ts makeOcrPdf).
+11. **Paragraph move is translate-only and IN PLACE** (`moveParagraph`) —
+    never routed through reflow/re-encode (that would silently re-align
+    justified text and drop TJ kerning) and never appended at stream end
+    (invariant 9's z-order rule). Each original show op is sandwiched between
+    an absolute `Tm` (the interpreter-recorded `tmAtShow` — the tm when the
+    first glyph paints, NOT the tlm, since a show op can continue another's
+    advanced tm — plus the page delta through the inverse of the CTM's linear
+    part) and a restore `Tm` (the recorded original tlm), so every downstream
+    op sees the original text-line-matrix chain. `'`/`"` convert to
+    `Tw Tc Tj` with the leading move already baked into the recorded matrix.
+    A `Tj`/`TJ` outside the paragraph that continued a tm chain the restore
+    reset gets pinned with its own original matrices; a TJ shared across
+    column-split paragraphs refuses to move (it would drag the other column
+    along — the same latent hazard exists in removeShowOps-based edits).
+    All matrix numbers use full-precision `pnum` (writer.ts). The enabling
+    data is `InterpretResult.showOps` (per-show-op tm/tlm/CTM snapshots).
+    Regression: test/move-paragraph.test.ts.
 
 ## Paragraph heuristics (text-model/paragraphs.ts)
 
@@ -138,7 +162,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 94 tests, including the jsdom viewer harness
+`npx vitest run` — 108 tests, including the jsdom viewer harness
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:

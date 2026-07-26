@@ -17,6 +17,13 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] In a bold/italic/serif headline with a pruned subset font, type letters outside the subset → substituted words match the surrounding weight, slant, and serif style, rendered in the bundled Georgia-like serif (not Times)
 - [ ] Type Latin-Extended text (e.g. `Świętokrzyska` or `Łódź`) into any paragraph → succeeds with the "substitute font was used" notice (was a hard reject before the bundled fonts); saved copy renders and searches correctly
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
+- [ ] Drag a paragraph → box follows the pointer, text lands where dropped; a plain click still opens the editor
+- [ ] Escape mid-drag cancels; paragraph stays put
+- [ ] Zoom into moved text: spacing/kerning identical to before the move (justified paragraphs stay justified — a drag must never re-encode the text)
+- [ ] Drag a paragraph over an image drawn after it → the image still paints ON TOP (moved in place, z-order preserved)
+- [ ] Undo restores the moved paragraph to its old spot; Redo re-applies
+- [ ] Saved copy shows the move in Preview/Acrobat and the moved text is still searchable
+- [ ] Known quirk: dropping a paragraph flush against same-styled text merges their outlines on the next render (heuristic detection)
 
 ## Scanned + OCR (scanned.pdf)
 

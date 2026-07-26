@@ -84,6 +84,15 @@ function escapeName(name: string): string {
 
 // Convenience constructors used by the edit pipeline.
 export const num = (v: number): PdfVal => ({ k: 'num', v, raw: fmtNum(v) });
+
+/** Full-precision number: fmtNum's 4 decimals get amplified by transform
+ *  scales (unit-space delta × CTM), drifting repeated moves by visible
+ *  fractions. PDF numbers cannot use exponent notation. */
+export const pnum = (v: number): PdfVal => {
+  let raw = String(v);
+  if (raw.includes('e') || raw.includes('E')) raw = v.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+  return { k: 'num', v, raw };
+};
 export const name = (v: string): PdfVal => ({ k: 'name', v });
 export const str = (bytes: Uint8Array): PdfVal => ({ k: 'str', bytes });
 export const mkOp = (op: string, ...args: PdfVal[]): Op => ({ op, args });

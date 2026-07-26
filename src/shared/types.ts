@@ -95,6 +95,9 @@ export interface EngineAPI {
     colorRanges?: ColorRange[],
   ): Promise<EditOutcome>;
   deleteParagraph(pageIndex: number, paragraphId: string): Promise<EditOutcome>;
+  /** Move a paragraph by (dx, dy) in page space (y-up) — translate-only, so
+   *  kerning/justification/fonts are untouched. */
+  moveParagraph(pageIndex: number, paragraphId: string, dx: number, dy: number): Promise<EditOutcome>;
   editOcrWord(pageIndex: number, runId: string, newText: string, patchColor: RGB, textColor?: RGB): Promise<EditOutcome>;
   /** Move an image placement by (dx, dy) in page space (y-up). */
   moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome>;

@@ -5,8 +5,8 @@
 import { PDFArray, PDFDict, PDFDocument, PDFFont, PDFName, PDFPage, PDFRawStream, PDFRef, StandardFonts } from 'pdf-lib';
 import * as pdfLib from 'pdf-lib';
 import { parseContent, type Op } from './content-stream/parser';
-import { writeContent, mkOp, num, name, str } from './content-stream/writer';
-import { interpret, apply, type RawRun, type Mat } from './content-stream/interpreter';
+import { writeContent, mkOp, num, pnum, name, str } from './content-stream/writer';
+import { interpret, apply, type RawRun, type Mat, type ShowOpGeom } from './content-stream/interpreter';
 import fontkit from '@pdf-lib/fontkit';
 import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type FontInfo } from './fonts/font-info';
 import { bundledKeyFor, bundledBytes, bundledCanEncode, bundledWidth, isBundledKey } from './fonts/fallback-fonts';
@@ -35,6 +35,7 @@ interface PageState {
   imageNames: Set<string>; // /Resources /XObject entries with /Subtype /Image
   runs: RawRun[];
   runIndex: Map<string, RawRun>;
+  showOps: Map<number, ShowOpGeom>;
   paras: Map<string, ParaMeta>;
   ocrWords: Map<string, OcrWordMeta>;
   images: Map<string, ImagePlacement>;
@@ -193,6 +194,7 @@ export class EditableDocument {
       imageNames: this.pageImageNames(page),
       runs: [],
       runIndex: new Map(),
+      showOps: new Map(),
       paras: new Map(),
       ocrWords: new Map(),
       images: new Map(),
@@ -204,9 +206,10 @@ export class EditableDocument {
   }
 
   private reinterpret(st: PageState): void {
-    const { runs, doPlacements } = interpret(st.ops, st.fonts);
+    const { runs, doPlacements, showOps } = interpret(st.ops, st.fonts);
     st.runs = runs;
     st.runIndex = new Map(st.runs.map((r) => [r.id, r]));
+    st.showOps = showOps;
     st.images = new Map();
     for (const p of doPlacements) {
       if (!st.imageNames.has(p.name)) continue; // form XObjects etc.
@@ -630,6 +633,107 @@ export class EditableDocument {
     return { status: 'ok', bytes: await this.save() };
   }
 
+  /** Move a paragraph by (dx, dy) in page space — translate-only, IN PLACE.
+   *  Never routed through reflow/re-encode: each of the paragraph's show ops
+   *  is sandwiched between an absolute Tm (the recorded tm-at-show plus the
+   *  delta pushed through the inverse of the CTM's linear part, same math as
+   *  moveImage) and a restore Tm (the recorded original tlm). Kerning,
+   *  justification, fonts, and paint order are untouched, and every op after
+   *  the paragraph sees the original text-line-matrix chain. Quote forms
+   *  convert to Tw/Tc/Tj — their leading move is already baked into the
+   *  recorded matrix, and the spacing args are persistent state the explicit
+   *  Tw/Tc reproduce. */
+  async moveParagraph(pageIndex: number, paragraphId: string, dx: number, dy: number): Promise<EditOutcome> {
+    await this.ensurePageReady(pageIndex);
+    const st = this.pages[pageIndex];
+    const para = st?.paras.get(paragraphId);
+    if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+
+    // A single TJ can span two detected paragraphs (column split on a huge
+    // kern) — translating the whole op would drag the other column along.
+    // (editParagraph/deleteParagraph share this hazard via removeShowOps.)
+    const runIds = new Set(para.runIds);
+    for (const r of st.runs) {
+      if (para.opIndices.has(r.opIndex) && !runIds.has(r.id)) {
+        return {
+          status: 'error',
+          message: "This text shares a drawing operation with another block and can't be moved on its own.",
+        };
+      }
+    }
+
+    interface Sandwich {
+      before: Mat;
+      after: Mat;
+    }
+    const plan = new Map<number, Sandwich>();
+    for (const opIndex of para.opIndices) {
+      const g = st.showOps.get(opIndex);
+      if (!g) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+      const [a, b, c, d] = g.ctm;
+      const det = a * d - b * c;
+      if (Math.abs(det) < 1e-9) {
+        return { status: 'error', message: 'This text has a degenerate transform and cannot be moved.' };
+      }
+      // tm' = tm · (C·T(dx,dy)·C⁻¹); C·T·C⁻¹ is a pure translation by the
+      // page delta through the inverse of the CTM's linear part.
+      const dxp = (dx * d - dy * c) / det;
+      const dyp = (dy * a - dx * b) / det;
+      const t = g.tmAtShow;
+      plan.set(opIndex, { before: [t[0], t[1], t[2], t[3], t[4] + dxp, t[5] + dyp], after: g.tlmAfter });
+    }
+
+    // Pin followers whose position continued from a tm advance the restore-Tm
+    // discards: after a sandwiched op, tm = tlm rather than the glyph-advanced
+    // matrix, so a Tj/TJ that ran before the next positioning op (per-glyph
+    // generators do this) must be re-anchored at its original position.
+    let chainDirty = false;
+    for (let i = 0; i < st.ops.length; i++) {
+      const { op } = st.ops[i];
+      if (para.opIndices.has(i)) {
+        chainDirty = true;
+        continue;
+      }
+      if (op === 'BT' || op === 'Td' || op === 'TD' || op === 'Tm' || op === 'T*') {
+        chainDirty = false;
+      } else if (op === "'" || op === '"') {
+        chainDirty = false; // repositions from tlm, which the restore keeps correct
+      } else if ((op === 'Tj' || op === 'TJ') && chainDirty) {
+        const g = st.showOps.get(i);
+        if (g) plan.set(i, { before: g.tmAtShow, after: g.tlmAfter }); // pinned, unshifted
+        // stays dirty: the pin's own restore also leaves tm = tlm
+      }
+    }
+
+    this.snapshot(pageIndex);
+    const tmOp = (m: Mat) => mkOp('Tm', pnum(m[0]), pnum(m[1]), pnum(m[2]), pnum(m[3]), pnum(m[4]), pnum(m[5]));
+    const out: Op[] = [];
+    for (let i = 0; i < st.ops.length; i++) {
+      const s = plan.get(i);
+      if (!s) {
+        out.push(st.ops[i]);
+        continue;
+      }
+      const op = st.ops[i];
+      out.push(tmOp(s.before));
+      if (op.op === "'") {
+        out.push(mkOp('Tj', op.args[0] ?? str(new Uint8Array(0))));
+      } else if (op.op === '"') {
+        out.push(
+          mkOp('Tw', op.args[0] ?? num(0)),
+          mkOp('Tc', op.args[1] ?? num(0)),
+          mkOp('Tj', op.args[2] ?? str(new Uint8Array(0))),
+        );
+      } else {
+        out.push(op);
+      }
+      out.push(tmOp(s.after));
+    }
+    st.ops = out;
+    this.rebuildStream(st);
+    return { status: 'ok', bytes: await this.save() };
+  }
+
   async editOcrWord(
     pageIndex: number,
     runId: string,
@@ -720,14 +824,6 @@ export class EditableDocument {
     }
     const dxp = (dx * d - dy * c) / det;
     const dyp = (dy * a - dx * b) / det;
-    // full precision: fmtNum's 4 decimals get amplified by the image scale
-    // (unit-space delta × CTM), drifting repeated moves by visible fractions.
-    // PDF numbers cannot use exponent notation.
-    const pnum = (v: number): ReturnType<typeof num> => {
-      let raw = String(v);
-      if (raw.includes('e') || raw.includes('E')) raw = v.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
-      return { k: 'num', v, raw };
-    };
 
     this.snapshot(pageIndex);
     const doOp = st.ops[pl.opIndex];

@@ -114,6 +114,27 @@ export async function makeParagraphPdf(): Promise<Uint8Array> {
   return doc.save({ useObjectStreams: false });
 }
 
+/** Page whose content stream is exactly `content`, with /F1 = Helvetica.
+ *  pdf-lib's drawText only emits BT…Tm…Tj ET blocks, so tests exercising
+ *  Td / T-star / quote / TJ / cm positioning write the stream by hand. */
+export async function makeContentPdf(content: string): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([612, 792]);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const ctx = doc.context;
+  page.node.set(PDFName.of('Contents'), ctx.register(ctx.flateStream(content)));
+  let resources = page.node.Resources?.();
+  if (!resources) {
+    const created = ctx.obj({});
+    page.node.set(PDFName.of('Resources'), created);
+    resources = created;
+  }
+  const fd = ctx.obj({}) as unknown as { set: (k: unknown, v: unknown) => void };
+  fd.set(PDFName.of('F1'), (font as unknown as { ref: unknown }).ref);
+  (resources as unknown as { set: (k: unknown, v: unknown) => void }).set(PDFName.of('Font'), fd);
+  return doc.save({ useObjectStreams: false });
+}
+
 /** Fake OCR sandwich: light-gray "scan" background + invisible (Tr 3) text layer. */
 export async function makeOcrPdf(): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
