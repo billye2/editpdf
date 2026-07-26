@@ -13,10 +13,12 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const toolbar = {
   open: $<HTMLButtonElement>('btn-open'),
   save: $<HTMLButtonElement>('btn-save'),
-  download: $<HTMLButtonElement>('btn-download'),
   undo: $<HTMLButtonElement>('btn-undo'),
+  redo: $<HTMLButtonElement>('btn-redo'),
   zoomIn: $<HTMLButtonElement>('btn-zoom-in'),
   zoomOut: $<HTMLButtonElement>('btn-zoom-out'),
+  fitWidth: $<HTMLButtonElement>('btn-fit-width'),
+  fitPage: $<HTMLButtonElement>('btn-fit-page'),
   zoomLabel: $<HTMLSpanElement>('zoom-label'),
   debug: $<HTMLInputElement>('chk-debug'),
   fileName: $<HTMLSpanElement>('file-name'),
@@ -28,7 +30,6 @@ const toastEl = $<HTMLDivElement>('toast');
 
 let currentBytes: Uint8Array | null = null;
 let pdf: PDFDocumentProxy | null = null;
-let fileHandle: FileSystemFileHandle | null = null;
 let fileName = 'document.pdf';
 let zoom = 1.25;
 let editingDisabled = false;
@@ -71,9 +72,8 @@ function rectToCss(bbox: Rect, viewport: PageViewport): { left: number; top: num
   };
 }
 
-async function openBytes(bytes: Uint8Array, name: string, handle: FileSystemFileHandle | null): Promise<void> {
+async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
   currentBytes = bytes;
-  fileHandle = handle;
   fileName = name;
   toolbar.fileName.textContent = name;
   dropzone.remove();
@@ -95,11 +95,12 @@ async function openBytes(bytes: Uint8Array, name: string, handle: FileSystemFile
   await reloadPdfJs();
   await renderAllPages(true);
 
-  toolbar.download.disabled = false;
   toolbar.zoomIn.disabled = false;
   toolbar.zoomOut.disabled = false;
-  toolbar.save.disabled = !fileHandle || editingDisabled;
-  await refreshUndoButton();
+  toolbar.fitWidth.disabled = false;
+  toolbar.fitPage.disabled = false;
+  toolbar.save.disabled = false;
+  await refreshHistoryButtons();
 
   if (!editingDisabled && pdf) {
     const first = pageUIs[0]?.view;
@@ -673,7 +674,7 @@ async function applyEdit(fn: () => Promise<{ status: string; message?: string; b
       currentBytes = result.bytes;
       await reloadPdfJs();
       await renderPage(pageIndex);
-      await refreshUndoButton();
+      await refreshHistoryButtons();
     }
     if (result.message) toast(result.message, result.status === 'ok' ? 'info' : 'warn', 6000);
     else toast('Edit applied.', 'info', 1800);
@@ -682,8 +683,10 @@ async function applyEdit(fn: () => Promise<{ status: string; message?: string; b
   }
 }
 
-async function refreshUndoButton(): Promise<void> {
-  toolbar.undo.disabled = editingDisabled || !(await engine.canUndo());
+async function refreshHistoryButtons(): Promise<void> {
+  const [u, r] = await Promise.all([engine.canUndo(), engine.canRedo()]);
+  toolbar.undo.disabled = editingDisabled || !u;
+  toolbar.redo.disabled = editingDisabled || !r;
 }
 
 // ---------- file handling ----------
@@ -699,7 +702,7 @@ async function openViaPicker(): Promise<void> {
         types: [{ description: 'PDF files', accept: { 'application/pdf': ['.pdf'] } }],
       });
       const file = await handle.getFile();
-      await openBytes(new Uint8Array(await file.arrayBuffer()), file.name, handle);
+      await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
       return;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -711,20 +714,36 @@ async function openViaPicker(): Promise<void> {
   input.accept = 'application/pdf';
   input.onchange = async () => {
     const file = input.files?.[0];
-    if (file) await openBytes(new Uint8Array(await file.arrayBuffer()), file.name, null);
+    if (file) await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
   };
   input.click();
 }
 
-async function saveToHandle(): Promise<void> {
-  if (!fileHandle || !currentBytes) return;
+/** Always Save As — the original file is never overwritten. */
+async function saveAs(): Promise<void> {
+  if (!currentBytes) return;
+  const suggestedName = fileName.replace(/\.pdf$/i, '') + '-edited.pdf';
+  if (!('showSaveFilePicker' in window)) {
+    download();
+    return;
+  }
   try {
-    const writable = await fileHandle.createWritable();
+    const handle = await (
+      window as unknown as {
+        showSaveFilePicker: (o: object) => Promise<FileSystemFileHandle>;
+      }
+    ).showSaveFilePicker({
+      suggestedName,
+      types: [{ description: 'PDF files', accept: { 'application/pdf': ['.pdf'] } }],
+    });
+    const writable = await handle.createWritable();
     await writable.write(currentBytes.slice() as unknown as ArrayBuffer & Uint8Array);
     await writable.close();
-    toast(`Saved ${fileName}.`);
+    toast(`Saved ${handle.name}.`);
   } catch (e) {
-    toast(`Save failed: ${e instanceof Error ? e.message : e}. Use Download instead.`, 'error', 6000);
+    if ((e as Error).name === 'AbortError') return;
+    toast(`Save failed: ${e instanceof Error ? e.message : e} — downloading a copy instead.`, 'warn', 6000);
+    download();
   }
 }
 
@@ -743,27 +762,45 @@ function download(): void {
 // ---------- wire up ----------
 
 toolbar.open.addEventListener('click', () => void openViaPicker());
-toolbar.save.addEventListener('click', () => void saveToHandle());
-toolbar.download.addEventListener('click', download);
-toolbar.undo.addEventListener('click', async () => {
-  const bytes = await engine.undo();
+toolbar.save.addEventListener('click', () => void saveAs());
+async function applyHistory(fn: () => Promise<Uint8Array | null>, doneMsg: string): Promise<void> {
+  const bytes = await fn();
   if (bytes) {
     currentBytes = bytes;
     await reloadPdfJs();
     await renderAllPages(false);
-    await refreshUndoButton();
-    toast('Undone.');
+    await refreshHistoryButtons();
+    toast(doneMsg);
   }
-});
-toolbar.zoomIn.addEventListener('click', async () => {
-  zoom = Math.min(4, zoom + 0.25);
+}
+toolbar.undo.addEventListener('click', () => void applyHistory(() => engine.undo(), 'Undone.'));
+toolbar.redo.addEventListener('click', () => void applyHistory(() => engine.redo(), 'Redone.'));
+
+async function setZoom(z: number): Promise<void> {
+  zoom = Math.min(4, Math.max(0.25, z));
   toolbar.zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
   await renderAllPages(false);
+}
+/** First page's size in CSS px at zoom 1. */
+function basePageSize(): { w: number; h: number } | null {
+  const vp = pageUIs[0]?.viewport;
+  if (!vp) return null;
+  return { w: vp.width / zoom, h: vp.height / zoom };
+}
+toolbar.zoomIn.addEventListener('click', () => void setZoom(zoom + 0.25));
+toolbar.zoomOut.addEventListener('click', () => void setZoom(zoom - 0.25));
+toolbar.fitWidth.addEventListener('click', () => {
+  const base = basePageSize();
+  if (!base) return;
+  const availW = pagesEl.clientWidth - 24 - 2; // #pages side padding + page border
+  void setZoom(availW / base.w);
 });
-toolbar.zoomOut.addEventListener('click', async () => {
-  zoom = Math.max(0.5, zoom - 0.25);
-  toolbar.zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
-  await renderAllPages(false);
+toolbar.fitPage.addEventListener('click', () => {
+  const base = basePageSize();
+  if (!base) return;
+  const availW = pagesEl.clientWidth - 24 - 2;
+  const availH = window.innerHeight - pagesEl.getBoundingClientRect().top - 24 - 18 - 2;
+  void setZoom(Math.min(availW / base.w, availH / base.h));
 });
 toolbar.debug.addEventListener('change', () => {
   pageUIs.forEach((_, i) => buildOverlay(i));
@@ -774,11 +811,16 @@ document.addEventListener('drop', async (e) => {
   e.preventDefault();
   const file = e.dataTransfer?.files?.[0];
   if (file && /\.pdf$/i.test(file.name)) {
-    await openBytes(new Uint8Array(await file.arrayBuffer()), file.name, null);
+    await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
   }
 });
 
 toolbar.zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+
+// rarely used maintainer feature — hidden unless the page is opened with ?debug
+if (new URLSearchParams(location.search).has('debug')) {
+  document.getElementById('debug-wrap')!.hidden = false;
+}
 
 // ?file=<url> — used by the navigation-intercept redirect
 const fileParam = new URLSearchParams(location.search).get('file');
@@ -789,7 +831,7 @@ if (fileParam) {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const buf = new Uint8Array(await resp.arrayBuffer());
       const name = decodeURIComponent(fileParam.split('/').pop() ?? 'document.pdf').split('?')[0];
-      await openBytes(buf, name, null);
+      await openBytes(buf, name);
     } catch (e) {
       banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : e}`);
     }

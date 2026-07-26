@@ -7,8 +7,8 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Click body paragraph → textarea appears seeded with paragraph text
 - [ ] Replace a short word with a long one (`fox` → `velociraptor`), ⌘+Enter → paragraph reflows inside its box, line count may grow
 - [ ] Escape cancels without changes
-- [ ] Undo restores the original text
-- [ ] Download → open the copy in Chrome's native viewer, macOS Preview, AND Acrobat Reader — text renders, no errors
+- [ ] Undo restores the original text; Redo re-applies it; a new edit after Undo disables Redo
+- [ ] Save As → open the copy in Chrome's native viewer, macOS Preview, AND Acrobat Reader — text renders, no errors
 - [ ] Search (⌘F in Preview/Acrobat) finds the edited word in the saved copy
 - [ ] Type a character not in the doc font (e.g. `→`) → clear error toast, no corrupt output
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
@@ -42,8 +42,10 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 
 ## General
 - [ ] Zoom in/out re-renders pages and overlays stay aligned
-- [ ] Debug boxes: red boxes on visible runs, green on OCR layer
+- [ ] Fit width fills the window width; Fit page shows the whole page; overlays stay aligned after both
+- [ ] Debug boxes (open the viewer with `?debug` to reveal the toolbar checkbox): red boxes on visible runs, green on OCR layer
 - [ ] Encrypted PDF → banner, view-only, no crash
 - [ ] Image-only scan (no text layer) → "no editable text layer" banner
 - [ ] Navigate to a real `.pdf` URL → redirected into the viewer (best-effort)
-- [ ] Save (picker-opened file) overwrites in place; drag-dropped file → Save disabled, Download works
+- [ ] Save As opens a save dialog with `<name>-edited.pdf` suggested; the original file on disk is unchanged afterwards
+- [ ] Save As works for drag-dropped files too; cancelling the dialog does nothing

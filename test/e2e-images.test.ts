@@ -116,6 +116,30 @@ describe('image move', () => {
     expect(undone).toBeTruthy();
     expect(doc!.getPageView(0).images).toHaveLength(1);
   });
+
+  it('redo re-applies an undone edit; a fresh edit clears the redo stack', async () => {
+    const bytes = await makeImagePdf([{ x: 100, y: 500, w: 200, h: 150 }]);
+    const { doc } = await EditableDocument.load(bytes);
+    const img = doc!.getPageView(0).images[0];
+
+    await doc!.moveImage(0, img.id, 50, 50);
+    expect(doc!.canRedo()).toBe(false);
+    await doc!.undo();
+    expect(doc!.canRedo()).toBe(true);
+    expect(doc!.getPageView(0).images[0].bbox.x).toBeCloseTo(100, 3);
+
+    const redone = await doc!.redo();
+    expect(redone).toBeTruthy();
+    const view = doc!.getPageView(0);
+    expect(view.images[0].bbox.x).toBeCloseTo(150, 3);
+    expect(view.images[0].bbox.y).toBeCloseTo(550, 3);
+
+    // undo the redo, then make a NEW edit — redo history must be gone
+    await doc!.undo();
+    await doc!.deleteImage(0, doc!.getPageView(0).images[0].id);
+    expect(doc!.canRedo()).toBe(false);
+    expect(await doc!.redo()).toBeNull();
+  });
 });
 
 describe('image z-order and round-trip safety', () => {

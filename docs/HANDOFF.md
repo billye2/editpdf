@@ -16,7 +16,9 @@ type-check + tests + build on every push (`.github/workflows/ci.yml`).
   `Do` of a `/Subtype /Image` XObject is an independent placement (bbox = CTM
   × unit square). Inline images (`BI…EI`) and images nested in Form XObjects
   are untouched (round-trip byte-exactly).
-- Save overwrites the opened file (File System Access API) or downloads a copy.
+- Save is always Save As (File System Access picker, `-edited` suggested name;
+  falls back to a browser download) — the original file is never overwritten.
+  There is no separate Download button.
 
 ## Architecture
 

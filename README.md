@@ -47,8 +47,8 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text.
 - **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
 - On scanned+OCR pages, words show **dashed amber boxes**; click one to patch-edit it (with its own ink-color picker).
-- **Save** overwrites the opened file (only when opened via the file picker); **Download** always works. **Undo** reverts edits one at a time.
-- **Debug boxes** in the toolbar draws every detected text run (green = invisible OCR layer).
+- **Save As** opens a save dialog (suggesting `<name>-edited.pdf`) — the original file is never overwritten. **Undo/Redo** step through edits one at a time.
+- **Debug boxes** (maintainer feature, hidden by default — open the viewer with `?debug` to reveal the toolbar checkbox) draws every detected text run (green = invisible OCR layer).
 
 ## Known limitations (v1)
 

@@ -10,15 +10,17 @@
     <header id="toolbar">
       <span id="brand">EditPDF</span>
       <button id="btn-open" title="Open a PDF file">Open</button>
-      <button id="btn-save" title="Save (overwrite the opened file)" disabled>Save</button>
-      <button id="btn-download" title="Download a copy" disabled>Download</button>
+      <button id="btn-save" title="Save As (never overwrites the original file)" disabled>Save As</button>
       <button id="btn-undo" title="Undo last edit" disabled>Undo</button>
+      <button id="btn-redo" title="Redo last undone edit" disabled>Redo</button>
       <span class="sep"></span>
       <button id="btn-zoom-out" title="Zoom out" disabled>−</button>
       <span id="zoom-label">100%</span>
       <button id="btn-zoom-in" title="Zoom in" disabled>+</button>
+      <button id="btn-fit-width" title="Fit page width to the window" disabled>Fit width</button>
+      <button id="btn-fit-page" title="Fit whole page in the window" disabled>Fit page</button>
       <span class="sep"></span>
-      <label id="debug-wrap"><input type="checkbox" id="chk-debug" /> Debug boxes</label>
+      <label id="debug-wrap" hidden><input type="checkbox" id="chk-debug" /> Debug boxes</label>
       <span id="file-name"></span>
     </header>
     <div id="banner" hidden></div>

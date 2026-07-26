@@ -96,7 +96,9 @@ export interface EngineAPI {
   moveImage(pageIndex: number, imageId: string, dx: number, dy: number): Promise<EditOutcome>;
   deleteImage(pageIndex: number, imageId: string): Promise<EditOutcome>;
   undo(): Promise<Uint8Array | null>;
+  redo(): Promise<Uint8Array | null>;
   canUndo(): Promise<boolean>;
+  canRedo(): Promise<boolean>;
   save(): Promise<Uint8Array>;
   /** Embedded TrueType bytes usable as a browser FontFace, or null. */
   getFontBytes(pageIndex: number, fontRes: string, sample: string): Promise<Uint8Array | null>;

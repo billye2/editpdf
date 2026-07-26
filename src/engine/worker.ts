@@ -48,8 +48,15 @@ const api: EngineAPI = {
     if (!doc) return null;
     return doc.undo();
   },
+  async redo(): Promise<Uint8Array | null> {
+    if (!doc) return null;
+    return doc.redo();
+  },
   async canUndo(): Promise<boolean> {
     return doc?.canUndo() ?? false;
+  },
+  async canRedo(): Promise<boolean> {
+    return doc?.canRedo() ?? false;
   },
   async save(): Promise<Uint8Array> {
     if (!doc) throw new Error('No document loaded');

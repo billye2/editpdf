@@ -64,6 +64,7 @@ export class EditableDocument {
   private pdfDoc!: PDFDocument;
   private pages: PageState[] = [];
   private undoStack: UndoEntry[] = [];
+  private redoStack: UndoEntry[] = [];
   private stdFonts = new Map<string, PDFFont>();
   private nextResIdx = 1;
 
@@ -405,6 +406,7 @@ export class EditableDocument {
   private snapshot(pageIndex: number): void {
     this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex].ops] });
     if (this.undoStack.length > 50) this.undoStack.shift();
+    this.redoStack = []; // a fresh edit invalidates the redo history
   }
 
   async editParagraph(
@@ -691,6 +693,18 @@ export class EditableDocument {
     const entry = this.undoStack.pop();
     if (!entry) return null;
     const st = this.pages[entry.pageIndex];
+    this.redoStack.push({ pageIndex: entry.pageIndex, ops: [...st.ops] });
+    st.ops = entry.ops;
+    this.rebuildStream(st);
+    return this.save();
+  }
+
+  async redo(): Promise<Uint8Array | null> {
+    const entry = this.redoStack.pop();
+    if (!entry) return null;
+    const st = this.pages[entry.pageIndex];
+    // push directly (not via snapshot(), which would wipe the redo stack)
+    this.undoStack.push({ pageIndex: entry.pageIndex, ops: [...st.ops] });
     st.ops = entry.ops;
     this.rebuildStream(st);
     return this.save();
@@ -698,6 +712,10 @@ export class EditableDocument {
 
   canUndo(): boolean {
     return this.undoStack.length > 0;
+  }
+
+  canRedo(): boolean {
+    return this.redoStack.length > 0;
   }
 
   async save(): Promise<Uint8Array> {
