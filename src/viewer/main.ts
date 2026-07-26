@@ -38,6 +38,8 @@ const toolbar = {
 };
 const pagesEl = $<HTMLDivElement>('pages');
 const dropzone = $<HTMLDivElement>('dropzone');
+const statusPill = $<HTMLDivElement>('status-pill');
+const dropError = $<HTMLParagraphElement>('drop-error');
 const bannerEl = $<HTMLDivElement>('banner');
 const toastEl = $<HTMLDivElement>('toast');
 
@@ -116,13 +118,23 @@ function rectToCss(bbox: Rect, viewport: PageViewport): { left: number; top: num
   };
 }
 
-async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
+/** Replaces the current document. Returns false if the user kept their
+ *  unsaved edits instead — the beforeunload guard only covers closing the
+ *  tab, so in-app opens need their own warning. */
+async function openBytes(bytes: Uint8Array, name: string): Promise<boolean> {
+  if (dirty && currentBytes) {
+    const proceed = window.confirm(
+      `You have unsaved edits to "${fileName}".\n\nOpen "${name}" anyway? Your unsaved edits will be lost.`,
+    );
+    if (!proceed) return false;
+  }
   currentBytes = bytes;
   fileName = name;
   dirty = false;
   clearTimeout(autosaveTimer);
   removeRestoreBar(); // opening a file supersedes any pending restore offer
   toolbar.fileName.textContent = name;
+  statusPill.classList.add('loaded');
   dropzone.remove();
   banner(null);
   editingDisabled = false;
@@ -140,6 +152,7 @@ async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
   }
 
   await reloadPdfJs();
+  toolbar.fileName.textContent = `${name} · ${pdf!.numPages} page${pdf!.numPages === 1 ? '' : 's'}`;
   await renderAllPages(true);
   if (pageUIs.length) await renderPage(0); // first page eagerly: banner logic below needs its view
 
@@ -163,6 +176,7 @@ async function openBytes(bytes: Uint8Array, name: string): Promise<void> {
   if (recentsEnabled() && outcome.ok) {
     void recordRecent(bytes, { name, pageCount: outcome.pageCount, thumb: captureThumb() }).catch(() => {});
   }
+  return true;
 }
 
 async function reloadPdfJs(): Promise<void> {
@@ -898,31 +912,137 @@ toolbar.fitWidth.addEventListener('click', () => {
   void setZoom(availW / base.w);
 });
 toolbar.fitPage.addEventListener('click', () => {
-  const base = basePageSize();
-  if (!base) return;
-  const availW = pagesEl.clientWidth - 24 - 2;
-  const availH = window.innerHeight - pagesEl.getBoundingClientRect().top - 24 - 18 - 2;
-  void setZoom(Math.min(availW / base.w, availH / base.h));
+  void (async () => {
+    const base = basePageSize();
+    if (!base) return;
+    const availW = pagesEl.clientWidth - 24 - 2;
+    // The header is sticky, so its height — not #pages' scrolled-away top —
+    // is what limits the visible area; the old top-based math broke mid-scroll.
+    const chromeH = document.getElementById('chrome')!.getBoundingClientRect().height;
+    const availH = window.innerHeight - chromeH - 24 - 18 - 2;
+    // remember the page the user is on (the one under the viewport's center —
+    // a sliver of the previous page may still be visible above it), then snap
+    // it fully into view
+    const mid = (chromeH + window.innerHeight) / 2;
+    let topIdx = pageUIs.findIndex((p) => {
+      const r = p.wrap.getBoundingClientRect();
+      return r.top <= mid && r.bottom >= mid;
+    });
+    if (topIdx < 0) {
+      topIdx = Math.max(
+        0,
+        pageUIs.findIndex((p) => p.wrap.getBoundingClientRect().bottom > chromeH),
+      );
+    }
+    await setZoom(Math.min(availW / base.w, availH / base.h));
+    const wrap = pageUIs[topIdx]?.wrap;
+    if (wrap) {
+      window.scrollTo({ top: window.scrollY + wrap.getBoundingClientRect().top - chromeH - 24 });
+    }
+  })();
 });
+// "Show boxes" switch — first-class control in the new design, persisted
+const SHOW_BOXES_KEY = 'editpdf-show-boxes';
+try {
+  toolbar.debug.checked = localStorage.getItem(SHOW_BOXES_KEY) === '1';
+} catch {
+  // ignore
+}
 toolbar.debug.addEventListener('change', () => {
+  try {
+    localStorage.setItem(SHOW_BOXES_KEY, toolbar.debug.checked ? '1' : '0');
+  } catch {
+    // ignore
+  }
   pageUIs.forEach((_, i) => buildOverlay(i));
 });
 
+// Drag-over treatment lives on the whole window (the design accepts drops
+// anywhere on the canvas), with a counter to survive nested dragenter/leave.
+let dragDepth = 0;
+document.addEventListener('dragenter', (e) => {
+  if (!e.dataTransfer?.types.includes('Files')) return;
+  dragDepth++;
+  dropzone.classList.add('drag-over');
+});
+document.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0) {
+    dragDepth = 0;
+    dropzone.classList.remove('drag-over');
+  }
+});
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', async (e) => {
   e.preventDefault();
+  dragDepth = 0;
+  dropzone.classList.remove('drag-over');
   const file = e.dataTransfer?.files?.[0];
   if (file && /\.pdf$/i.test(file.name)) {
+    dropError.hidden = true;
     await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  } else if (file) {
+    // inline message in the drop zone, per the design — no modal alerts
+    if (dropzone.isConnected) {
+      dropError.textContent = `"${file.name}" isn't a PDF — drop a .pdf file instead.`;
+      dropError.hidden = false;
+    } else {
+      toast('That file isn’t a PDF — drop a .pdf file instead.', 'warn');
+    }
   }
 });
 
 toolbar.zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
 
-// rarely used maintainer feature — hidden unless the page is opened with ?debug
-if (new URLSearchParams(location.search).has('debug')) {
-  document.getElementById('debug-wrap')!.hidden = false;
-}
+// ---------- empty-state actions ----------
+
+$<HTMLButtonElement>('btn-choose').addEventListener('click', () => void openViaPicker());
+
+const sampleBtn = $<HTMLButtonElement>('btn-sample');
+sampleBtn.addEventListener('click', async () => {
+  sampleBtn.disabled = true;
+  const label = sampleBtn.textContent;
+  sampleBtn.textContent = 'Opening…';
+  try {
+    const resp = await fetch('samples/sample.pdf');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const opened = await openBytes(new Uint8Array(await resp.arrayBuffer()), 'sample.pdf');
+    if (!opened) {
+      sampleBtn.disabled = false;
+      sampleBtn.textContent = label;
+    }
+  } catch (e) {
+    toast(`Could not load the sample: ${e instanceof Error ? e.message : e}`, 'error');
+    sampleBtn.disabled = false;
+    sampleBtn.textContent = label;
+  }
+});
+
+// ---------- keyboard shortcuts ----------
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey) || isTypingTarget(document.activeElement)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'o') {
+    e.preventDefault();
+    void openViaPicker();
+  } else if (k === 's') {
+    e.preventDefault();
+    if (!toolbar.save.disabled) void saveAs();
+  } else if (k === 'z') {
+    e.preventDefault();
+    const btn = e.shiftKey ? toolbar.redo : toolbar.undo;
+    if (!btn.disabled) btn.click();
+  } else if (e.key === '=' || e.key === '+') {
+    e.preventDefault();
+    if (!toolbar.zoomIn.disabled) void setZoom(zoom + 0.25);
+  } else if (e.key === '-') {
+    e.preventDefault();
+    if (!toolbar.zoomOut.disabled) void setZoom(zoom - 0.25);
+  } else if (e.key === '0') {
+    e.preventDefault();
+    if (!toolbar.fitPage.disabled) toolbar.fitPage.click();
+  }
+});
 
 // ---------- optional auto-open permission ----------
 // The extension ships with no standing host permissions; redirecting .pdf
@@ -948,13 +1068,13 @@ function offerAutoOpenOptIn(): void {
           .then((ok) => {
             if (ok) {
               p.remove();
-              toast('Auto-open enabled — PDF links will now open in EditPDF.', 'info', 5000);
+              toast('Auto-open enabled — PDF links will now open in PDF Edna.', 'info', 5000);
             }
           })
           .catch(() => {});
       });
       p.append(btn);
-      dropzone.querySelector('div')?.append(p);
+      dropzone.querySelector('#drop-extra')?.append(p);
     })
     .catch(() => {});
 }
@@ -1107,6 +1227,28 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && recentsDialog) closeRecentsDialog();
 });
 
+// ---------- help tips ----------
+// The ? button cycles through short tips in the toast (same pattern as the
+// sibling product PDF Mana).
+
+const HELP_TIPS = [
+  'Tip: click any paragraph and just type — the words reflow to fit, nothing else shifts.',
+  'Tip: ⌘/Ctrl+Enter applies an edit, Esc cancels it.',
+  'Tip: select some text in the edit box first to color just those words.',
+  'Tip: on scanned PDFs, click a highlighted word to patch-fix it in place.',
+  'Tip: drag an image to move it; click it, then press Delete to remove it.',
+  'Tip: the ✕ at an edit box corner deletes the whole paragraph.',
+  'Tip: Save PDF never overwrites your original — it always writes a new file.',
+  'Tip: drop a PDF anywhere on the page to open it.',
+  'Tip: ⌘/Ctrl+Z undoes any edit; your history survives until you close the tab.',
+  'Tip: the Show boxes switch outlines everything the editor detected on the page.',
+];
+let tipIndex = 0;
+$<HTMLButtonElement>('btn-help').addEventListener('click', () => {
+  toast(HELP_TIPS[tipIndex], 'info', 6000);
+  tipIndex = (tipIndex + 1) % HELP_TIPS.length;
+});
+
 // ---------- session restore offer ----------
 
 let restoreBar: HTMLDivElement | null = null;
@@ -1165,7 +1307,7 @@ if (fileParam) {
       let hint = '';
       if (chromePerms) {
         const granted = await chromePerms.contains({ origins: ['<all_urls>'] }).catch(() => false);
-        if (!granted) hint = ' EditPDF may need the auto-open permission to fetch PDFs from websites.';
+        if (!granted) hint = ' PDF Edna may need the auto-open permission to fetch PDFs from websites.';
       }
       banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : e}.${hint}`);
     }

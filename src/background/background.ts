@@ -33,7 +33,7 @@ async function syncRedirectRule(): Promise<void> {
         : [],
     });
   } catch (e) {
-    console.warn('EditPDF: could not sync redirect rule', e);
+    console.warn('PDF Edna: could not sync redirect rule', e);
   }
 }
 

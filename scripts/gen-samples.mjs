@@ -12,7 +12,7 @@ mkdirSync('public/samples', { recursive: true });
   const page = doc.addPage([612, 792]);
   const font = await doc.embedFont(StandardFonts.TimesRoman);
   const bold = await doc.embedFont(StandardFonts.TimesRomanBold);
-  page.drawText('EditPDF Demo Document', { x: 72, y: 720, size: 20, font: bold });
+  page.drawText('PDF Edna Demo Document', { x: 72, y: 720, size: 20, font: bold });
   const para1 = [
     'The quick brown fox jumps over the lazy dog while the',
     'sun sets slowly behind the tall mountains in the west,',

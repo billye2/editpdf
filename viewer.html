@@ -3,37 +3,92 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EditPDF</title>
+    <title>PDF Edna</title>
     <link rel="stylesheet" href="/src/viewer/viewer.css" />
   </head>
   <body>
-    <header id="toolbar">
-      <span id="brand">EditPDF</span>
-      <button id="btn-open" title="Open a PDF file">Open</button>
-      <button id="btn-recents" title="Recently opened files">Recents</button>
-      <button id="btn-save" title="Save As (never overwrites the original file)" disabled>Save As</button>
-      <button id="btn-undo" title="Undo last edit" disabled>Undo</button>
-      <button id="btn-redo" title="Redo last undone edit" disabled>Redo</button>
-      <span class="sep"></span>
-      <button id="btn-zoom-out" title="Zoom out" disabled>−</button>
-      <span id="zoom-label">100%</span>
-      <button id="btn-zoom-in" title="Zoom in" disabled>+</button>
-      <button id="btn-fit-width" title="Fit page width to the window" disabled>Fit width</button>
-      <button id="btn-fit-page" title="Fit whole page in the window" disabled>Fit page</button>
-      <span class="sep"></span>
-      <label id="debug-wrap" hidden><input type="checkbox" id="chk-debug" /> Debug boxes</label>
-      <span id="file-name"></span>
+    <header id="chrome">
+      <div id="topbar">
+        <div id="wordmark">
+          <span id="brand">PDF Edna</span>
+          <span id="brand-sub">PDF Text Editing Made Easy</span>
+        </div>
+        <div id="status-wrap">
+          <div id="status-pill">
+            <span id="status-dot"></span>
+            <span id="file-name">Nothing open yet</span>
+          </div>
+        </div>
+        <div id="global-actions">
+          <button id="btn-help" class="icon-btn" title="Tips" aria-label="Tips">?</button>
+          <button id="btn-recents" class="icon-btn" title="Previously opened files" aria-label="Previously opened files">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 17v5" />
+              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" />
+            </svg>
+          </button>
+          <button id="btn-save" class="pill pill-green" title="Save As (never overwrites the original file)" disabled>
+            <span class="glyph">⤓</span> Save PDF
+          </button>
+        </div>
+      </div>
+      <div id="actionbar">
+        <button id="btn-open" class="pill pill-blue" title="Open a PDF file">
+          <span class="glyph">＋</span> Open a PDF
+        </button>
+        <span class="sep"></span>
+        <div id="zoom-group">
+          <button id="btn-zoom-out" class="stepper" title="Zoom out" disabled>−</button>
+          <span id="zoom-label">100%</span>
+          <button id="btn-zoom-in" class="stepper" title="Zoom in" disabled>＋</button>
+        </div>
+        <button id="btn-fit-width" class="pill pill-tertiary" title="Fit page width to the window" disabled>Fit width</button>
+        <button id="btn-fit-page" class="pill pill-tertiary" title="Fit whole page in the window" disabled>Fit page</button>
+        <span class="spacer"></span>
+        <button id="btn-undo" class="icon-btn" title="Undo last edit" disabled>↺</button>
+        <button id="btn-redo" class="icon-btn" title="Redo last undone edit" disabled>↻</button>
+        <label id="debug-wrap">
+          <input type="checkbox" id="chk-debug" />
+          <span class="switch" aria-hidden="true"></span>
+          Show boxes
+        </label>
+      </div>
     </header>
     <div id="banner" hidden></div>
     <main id="pages">
       <div id="dropzone">
-        <div>
-          <h1>EditPDF</h1>
-          <p>Drop a PDF here, or click <strong>Open</strong>.</p>
-          <p class="hint">
-            Click a paragraph to edit its text — the paragraph reflows to fit.
-            On scanned PDFs with an OCR text layer, click a highlighted word to patch it.
-          </p>
+        <div id="drop-card">
+          <div id="page-cluster" aria-hidden="true">
+            <div class="paper paper-left"></div>
+            <div class="paper paper-right"></div>
+            <div class="paper paper-front">
+              <i></i><i style="width: 78%"></i><i class="mint" style="width: 60%"></i><i></i><i style="width: 44%"></i>
+            </div>
+          </div>
+          <div id="drop-copy">
+            <h1>Drop a PDF right here</h1>
+            <p>Then click any paragraph and just type. The words move over to make room — nothing else shifts.</p>
+          </div>
+          <div id="drop-actions">
+            <button id="btn-choose" class="pill pill-blue pill-hero"><span class="glyph">＋</span> Choose a file</button>
+            <button id="btn-sample" class="pill pill-plain pill-hero">Try a sample</button>
+          </div>
+          <p id="drop-error" hidden></p>
+          <div id="drop-extra"></div>
+        </div>
+        <div id="capability-cards">
+          <div class="cap-card">
+            <span class="cap-tile cap-blue">T</span>
+            <span class="cap-text"><b>Retype a paragraph</b><small>It reflows to fit</small></span>
+          </div>
+          <div class="cap-card">
+            <span class="cap-tile cap-purple">✦</span>
+            <span class="cap-text"><b>Patch scanned words</b><small>Tap a highlight to fix it</small></span>
+          </div>
+          <div class="cap-card">
+            <span class="cap-tile cap-green">↺</span>
+            <span class="cap-text"><b>Undo anything</b><small>Your original stays safe</small></span>
+          </div>
         </div>
       </div>
     </main>

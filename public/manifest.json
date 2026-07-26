@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "EditPDF",
+  "name": "PDF Edna – PDF Text Editing Made Easy",
   "version": "1.6.0",
-  "description": "Edit the actual text of PDFs — including OCR'd scans — entirely in your browser.",
+  "description": "PDF text editing made easy — edit the actual text of PDFs, including OCR'd scans, entirely in your browser.",
   "action": {
-    "default_title": "Open EditPDF"
+    "default_title": "Open PDF Edna"
   },
   "background": {
     "service_worker": "background.js",

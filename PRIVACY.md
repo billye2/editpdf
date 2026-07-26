@@ -1,6 +1,6 @@
-# EditPDF Privacy
+# PDF Edna Privacy
 
-EditPDF runs entirely in your browser. Your PDFs are never uploaded anywhere.
+PDF Edna runs entirely in your browser. Your PDFs are never uploaded anywhere.
 
 - **No network use.** Parsing, editing, rendering, and saving all happen
   locally. The extension makes no requests to any server. The only fetch it
@@ -12,7 +12,7 @@ EditPDF runs entirely in your browser. Your PDFs are never uploaded anywhere.
   `<all_urls>` host permission (Chrome has no narrower way to match "any URL
   ending in .pdf"); it is requested only when you click **Enable auto-open**
   on the start screen, and can be revoked any time at
-  `chrome://extensions` → EditPDF → Site access.
+  `chrome://extensions` → PDF Edna → Site access.
 
 ## What is stored locally on your device
 
