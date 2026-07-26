@@ -39,7 +39,7 @@ function directResources(pdfDoc: PDFDocument, page: PDFPage): PDFDict {
   const ctx = pdfDoc.context;
   const direct = lookup(pdfDoc, page.node.get(PDFName.of('Resources')));
   if (direct instanceof PDFDict) return direct;
-  const clone = ctx.obj({}) as PDFDict;
+  const clone = ctx.obj({});
   const node = page.node as unknown as { Resources?: () => PDFDict | undefined };
   try {
     const inherited = node.Resources?.();
@@ -67,7 +67,7 @@ function mergeCategory(
   if (!(src instanceof PDFDict)) return renames;
   let dst = lookup(pdfDoc, pageRes.get(PDFName.of(category)));
   if (!(dst instanceof PDFDict)) {
-    dst = ctx.obj({}) as PDFDict;
+    dst = ctx.obj({});
     pageRes.set(PDFName.of(category), dst as PDFDict);
   }
   for (const [key, val] of src.entries()) {
@@ -135,7 +135,7 @@ export function flattenFreeText(pdfDoc: PDFDocument, page: PDFPage): number {
     const contents = page.node.get(PDFName.of('Contents'));
     const resolved = contents instanceof PDFArray ? contents : lookup(pdfDoc, contents);
     if (resolved instanceof PDFArray) {
-      const items: PDFObject[] = [qRef as PDFObject];
+      const items: PDFObject[] = [qRef];
       for (let k = 0; k < resolved.size(); k++) items.push(resolved.get(k));
       items.push(QRef);
       page.node.set(PDFName.of('Contents'), ctx.obj(items));
@@ -147,8 +147,7 @@ export function flattenFreeText(pdfDoc: PDFDocument, page: PDFPage): number {
   for (let i = 0; i < annots.size(); i++) {
     const ref = annots.get(i);
     const a = lookup(pdfDoc, ref);
-    const isFreeText =
-      a instanceof PDFDict && a.get(PDFName.of('Subtype')) === PDFName.of('FreeText');
+    const isFreeText = a instanceof PDFDict && a.get(PDFName.of('Subtype')) === PDFName.of('FreeText');
     if (!isFreeText) {
       keep.push(ref);
       continue;
@@ -219,7 +218,7 @@ export function flattenFreeText(pdfDoc: PDFDocument, page: PDFPage): number {
   }
 
   if (flattened) {
-    const arr = ctx.obj(keep) as PDFArray;
+    const arr = ctx.obj(keep);
     page.node.set(PDFName.of('Annots'), arr);
   }
   return flattened;

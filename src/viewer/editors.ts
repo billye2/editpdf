@@ -15,7 +15,14 @@ function buildColorRow(defaultColor: RGB, onPick: (c: RGB) => void): { row: HTML
   // don't let clicks in the row blur the edit box into a premature commit
   row.addEventListener('mousedown', (e) => e.preventDefault());
 
-  const presets: RGB[] = [defaultColor, [0, 0, 0], [0.77, 0.06, 0.06], [0.05, 0.25, 0.7], [0.05, 0.45, 0.15], [0.45, 0.45, 0.45]];
+  const presets: RGB[] = [
+    defaultColor,
+    [0, 0, 0],
+    [0.77, 0.06, 0.06],
+    [0.05, 0.25, 0.7],
+    [0.05, 0.45, 0.15],
+    [0.45, 0.45, 0.45],
+  ];
   const seen = new Set<string>();
   const swatches: HTMLButtonElement[] = [];
   const select = (c: RGB, el: HTMLElement) => {
@@ -51,7 +58,12 @@ function buildColorRow(defaultColor: RGB, onPick: (c: RGB) => void): { row: HTML
 }
 
 function fontFamilyFor(view: ParagraphView): string {
-  const base = view.fontKind === 'mono' ? 'ui-monospace, monospace' : view.fontKind === 'serif' ? 'Georgia, serif' : 'Helvetica, Arial, sans-serif';
+  const base =
+    view.fontKind === 'mono'
+      ? 'ui-monospace, monospace'
+      : view.fontKind === 'serif'
+        ? 'Georgia, serif'
+        : 'Helvetica, Arial, sans-serif';
   return base;
 }
 
@@ -75,7 +87,7 @@ function embeddedFamilyFor(pageIndex: number, para: ParagraphView): Promise<stri
       const bytes = await engine.getFontBytes(pageIndex, para.fontRes, para.text.slice(0, 80));
       if (!bytes) return null;
       const family = 'EPDF-' + key.replace(/[^a-zA-Z0-9]/g, '-');
-      const face = new FontFace(family, bytes.slice().buffer as ArrayBuffer);
+      const face = new FontFace(family, bytes.slice().buffer);
       await face.load();
       document.fonts.add(face);
       return family;

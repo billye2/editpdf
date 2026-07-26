@@ -82,7 +82,7 @@ describe.skipIf(!haveFont)('CID font preservation on edit', () => {
     // extended-code widths came from hmtx, not the DW=1000 default: the run
     // width must match ground truth measured directly from the TTF
     const zebraRun = view2.runs.find((r) => r.text.includes('Zebra'))!;
-    const tt = fontkit.create(readFileSync(ARIAL_BOLD) as unknown as Parameters<typeof fontkit.create>[0]);
+    const tt = fontkit.create(readFileSync(ARIAL_BOLD));
     let exact = 0;
     for (const ch of 'Quarterly Zebra') {
       exact += (tt.glyphForCodePoint(ch.codePointAt(0)!).advanceWidth / tt.unitsPerEm) * 16;

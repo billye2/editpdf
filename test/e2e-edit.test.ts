@@ -119,7 +119,10 @@ describe('end-to-end editing', () => {
     const { doc } = await EditableDocument.load(bytes);
     const saved = await doc!.save();
     const { doc: doc2 } = await EditableDocument.load(saved);
-    const texts = doc2!.getPageView(0).runs.map((r) => r.text).join('');
+    const texts = doc2!
+      .getPageView(0)
+      .runs.map((r) => r.text)
+      .join('');
     expect(texts).toContain('Stability check 123');
   });
 });

@@ -1,0 +1,7 @@
+dist
+release
+node_modules
+package-lock.json
+public/fonts
+public/samples
+docs/*.zip

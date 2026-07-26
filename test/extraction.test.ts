@@ -15,7 +15,9 @@ async function extractTextWithPdfJs(bytes: Uint8Array): Promise<string> {
   // join with NO separator: spaces must come from real space glyphs in the
   // PDF, not from this test stitching items together
   const text = content.items
-    .map((i) => ('str' in i ? (i as { str: string; hasEOL?: boolean }).str + ((i as { hasEOL?: boolean }).hasEOL ? '\n' : '') : ''))
+    .map((i) =>
+      'str' in i ? (i as { str: string; hasEOL?: boolean }).str + ((i as { hasEOL?: boolean }).hasEOL ? '\n' : '') : '',
+    )
     .join('')
     .replace(/\s+/g, ' ');
   await doc.destroy();

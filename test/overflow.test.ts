@@ -47,7 +47,6 @@ describe('paragraph overflow protection', () => {
     const { doc } = await EditableDocument.load(bytes);
     const view = doc!.getPageView(0);
     const first = view.paragraphs.find((p) => p.text.includes('quick brown fox'))!;
-    const second = view.paragraphs.find((p) => p.text.startsWith('A second'))!;
 
     // add a little text — allowed to use the inter-paragraph gap, not more
     const result = await doc!.editParagraph(0, first.id, first.text + ' plus a few extra trailing words here');

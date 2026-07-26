@@ -20,6 +20,7 @@ Stack: [pdf.js](https://mozilla.github.io/pdf.js/) for rendering, a custom conte
 npm install
 npm test              # engine + viewer-DOM test suite (round-trip, geometry, reflow, UI wiring)
 npm run test:e2e      # Playwright end-to-end suite (real engine + rendering in Chromium)
+npm run lint          # ESLint (type-aware) + Prettier check; lint:fix to auto-fix
 npm run gen:samples   # writes public/samples/{sample,scanned,cid-fonts}.pdf
 npm run dev           # vite dev server — open /viewer.html?file=/samples/sample.pdf
 npm run build         # builds the extension into dist/

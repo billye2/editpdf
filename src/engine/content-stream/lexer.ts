@@ -13,8 +13,7 @@ export type Token =
   | { t: 'word'; v: string }
   | { t: 'inline'; raw: Uint8Array };
 
-const isWS = (c: number) =>
-  c === 0x00 || c === 0x09 || c === 0x0a || c === 0x0c || c === 0x0d || c === 0x20;
+const isWS = (c: number) => c === 0x00 || c === 0x09 || c === 0x0a || c === 0x0c || c === 0x0d || c === 0x20;
 
 const DELIMS = new Set('()<>[]{}/%'.split('').map((c) => c.charCodeAt(0)));
 const isDelim = (c: number) => DELIMS.has(c);
@@ -31,16 +30,21 @@ export function tokenize(bytes: Uint8Array): Token[] {
     const out: number[] = [];
     let depth = 1;
     while (i < n) {
-      let c = bytes[i];
+      const c = bytes[i];
       if (c === 0x5c /* \ */) {
         i++;
         if (i >= n) break;
         const e = bytes[i];
-        if (e === 0x6e) out.push(0x0a); // \n
-        else if (e === 0x72) out.push(0x0d); // \r
-        else if (e === 0x74) out.push(0x09); // \t
-        else if (e === 0x62) out.push(0x08); // \b
-        else if (e === 0x66) out.push(0x0c); // \f
+        if (e === 0x6e)
+          out.push(0x0a); // \n
+        else if (e === 0x72)
+          out.push(0x0d); // \r
+        else if (e === 0x74)
+          out.push(0x09); // \t
+        else if (e === 0x62)
+          out.push(0x08); // \b
+        else if (e === 0x66)
+          out.push(0x0c); // \f
         else if (e === 0x28 || e === 0x29 || e === 0x5c) out.push(e);
         else if (e >= 0x30 && e <= 0x37) {
           // octal, up to 3 digits

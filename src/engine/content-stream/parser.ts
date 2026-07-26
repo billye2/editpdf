@@ -1,6 +1,6 @@
 // Parses a token stream into a list of operators with operands.
 
-import { tokenize, type Token } from './lexer';
+import { tokenize } from './lexer';
 
 export type PdfVal =
   | { k: 'num'; v: number; raw?: string }

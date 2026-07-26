@@ -3,6 +3,7 @@
 Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extension.
 
 ## Born-digital (sample.pdf)
+
 - [ ] Open via toolbar button → file picker; both report pages render (page 2 lazily on scroll), paragraph outlines on hover, logo/chart/photo images show purple outlines and drag
 - [ ] Click body paragraph → textarea appears seeded with paragraph text
 - [ ] Replace a short word with a long one (`fox` → `velociraptor`), ⌘+Enter → paragraph reflows inside its box, line count may grow
@@ -18,23 +19,28 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
 
 ## Scanned + OCR (scanned.pdf)
+
+- [ ] The "scan" renders as dark unreadable ink smudges on a beige page (regression: a nested /Contents array once blanked this layer entirely)
 - [ ] Dashed purple boxes on each OCR word; toast announces scan mode
 - [ ] Click `10482`, type a replacement, Enter → smudge covered by patch, crisp new text drawn
 - [ ] Saved copy: old word not searchable, new word searchable
 - [ ] Replacement longer than original → warning toast about patch width
 
 ## Colors
+
 - [ ] Edit a paragraph, pick red with no selection → whole paragraph red after commit
 - [ ] Select one word, pick a color → only that word changes; neighbors keep theirs
 - [ ] Color-only change (no text edit) applies and undoes
 - [ ] OCR patch with a custom ink color renders in that color
 
 ## Fonts & editors
+
 - [ ] Edit box shows the document's embedded font (cid-fonts.pdf) — no Arial flash on commit
 - [ ] Long paste grows the edit box; nothing clips; hint follows below
 - [ ] Per-glyph PDF (browser print-to-PDF): spaces intact in the edit box and after edits
 
 ## Images (images.pdf)
+
 - [ ] Hover an image → purple outline; drag it → box follows the pointer, lands where dropped after re-render
 - [ ] Drag the rotated image → its center moves by exactly the drag distance
 - [ ] Escape mid-drag cancels; image stays put
@@ -45,10 +51,12 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Saved copy opens in Preview/Chrome with the image moved/removed as expected
 
 ## Annotations
+
 - [ ] Add text to a PDF in Edge (… menu → Add text), open it in PDF Edna → the added text has a paragraph outline and is editable
 - [ ] After Save As, the FreeText annotation is gone (flattened); links in the document still work
 
 ## Persistence & permissions
+
 - [ ] Edit a doc, close the tab → warning prompt; reopen viewer → restore bar offers the unsaved edits; Restore brings them back
 - [ ] Discard on the restore bar, then reload → no offer reappears
 - [ ] Save As after edits → no unload warning, no restore offer on next open
@@ -60,6 +68,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Open a 60+ page PDF → first screen paints immediately; scrolling renders pages as they approach; zoom re-renders only visible pages
 
 ## General
+
 - [ ] Header shows the PDF Edna wordmark + tagline; status pill reads "Nothing open yet" empty / "name · N pages" with a green dot when loaded
 - [ ] Empty state: floating page-card cluster animates; "Try a sample" loads the bundled sample; dropping a non-PDF shows an inline message in the drop zone (no dialog)
 - [ ] "?" button cycles through different tips in the toast

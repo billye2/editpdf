@@ -19,6 +19,8 @@ if (dirty) {
 
 // 2. checks
 run('npx tsc --noEmit');
+run('npx eslint .');
+run('npx prettier --check .');
 run('npx vitest run');
 
 const current = JSON.parse(readFileSync('package.json', 'utf8')).version;

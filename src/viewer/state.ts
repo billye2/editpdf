@@ -99,7 +99,7 @@ export async function applyEdit(
     if (result.message) toast(result.message, result.status === 'ok' ? 'info' : 'warn', 6000);
     else toast('Edit applied.', 'info', 1800);
   } catch (e) {
-    toast(`Edit failed: ${e instanceof Error ? e.message : e}`, 'error', 6000);
+    toast(`Edit failed: ${e instanceof Error ? e.message : String(e)}`, 'error', 6000);
   }
 }
 

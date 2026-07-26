@@ -32,7 +32,7 @@ sampleBtn.addEventListener('click', async () => {
       sampleBtn.textContent = label;
     }
   } catch (e) {
-    toast(`Could not load the sample: ${e instanceof Error ? e.message : e}`, 'error');
+    toast(`Could not load the sample: ${e instanceof Error ? e.message : String(e)}`, 'error');
     sampleBtn.disabled = false;
     sampleBtn.textContent = label;
   }
@@ -117,7 +117,7 @@ const fileParam = new URLSearchParams(location.search).get('file');
 if (!fileParam) {
   offerRestoreIfAny();
 } else {
-  (async () => {
+  void (async () => {
     try {
       const resp = await fetch(fileParam);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -130,7 +130,7 @@ if (!fileParam) {
         const granted = await chromePerms.contains({ origins: ['<all_urls>'] }).catch(() => false);
         if (!granted) hint = ' PDF Edna may need the auto-open permission to fetch PDFs from websites.';
       }
-      banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : e}.${hint}`);
+      banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : String(e)}.${hint}`);
     }
   })();
 }

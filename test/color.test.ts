@@ -68,9 +68,7 @@ describe('text color edits', () => {
     const { doc } = await EditableDocument.load(bytes);
     const para = doc!.getPageView(0).paragraphs.find((p) => p.text.includes('fox'))!;
     const start = para.text.indexOf('fox');
-    const result = await doc!.editParagraph(0, para.id, para.text, undefined, [
-      { start, end: start + 3, color: RED },
-    ]);
+    const result = await doc!.editParagraph(0, para.id, para.text, undefined, [{ start, end: start + 3, color: RED }]);
     expect(result.status).toBe('ok');
 
     const { doc: doc2 } = await EditableDocument.load(result.bytes!);

@@ -1,17 +1,7 @@
 // Builds a FontInfo (decode/encode/widths/style) for every font in a page's
 // resources, from the raw PDF font dictionaries.
 
-import {
-  PDFArray,
-  PDFDict,
-  PDFDocument,
-  PDFName,
-  PDFNumber,
-  PDFRef,
-  PDFRawStream,
-  PDFFont,
-  StandardFonts,
-} from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFRawStream, PDFFont, StandardFonts } from 'pdf-lib';
 import * as pdfLib from 'pdf-lib';
 import { parseToUnicode, winAnsiToUnicode, glyphNameToUnicode } from './encoding';
 import { parseTrueType, type TTFont } from './truetype';
@@ -119,10 +109,11 @@ function decodeStream(v: unknown): Uint8Array | undefined {
 
 export function styleFromName(baseFont: string): FontStyle {
   const n = baseFont.replace(/^[A-Z]{6}\+/, '').toLowerCase();
-  const kind: FontStyle['kind'] =
-    /courier|mono|consol/.test(n) ? 'mono'
-    : /times|serif|roman|georgia|garamond|book|palatino|cambria|minion/.test(n) ? 'serif'
-    : 'sans';
+  const kind: FontStyle['kind'] = /courier|mono|consol/.test(n)
+    ? 'mono'
+    : /times|serif|roman|georgia|garamond|book|palatino|cambria|minion/.test(n)
+      ? 'serif'
+      : 'sans';
   return {
     kind,
     bold: /bold|black|heavy|semib/.test(n),
@@ -175,7 +166,10 @@ function parseCidWidths(ctx: Ctx, wArr: PDFArray | undefined, dw: number): (code
     let i = 0;
     while (i < items.length) {
       const a = items[i];
-      if (!(a instanceof PDFNumber)) { i++; continue; }
+      if (!(a instanceof PDFNumber)) {
+        i++;
+        continue;
+      }
       const c = a.asNumber();
       const b = items[i + 1];
       if (b instanceof PDFArray) {
@@ -213,7 +207,7 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
   let widthOf: (code: number) => number;
   let ascent = 0.75;
   let descent = -0.25;
-  let encMap = new Map<number, string>(); // code -> unicode (from encoding, not ToUnicode)
+  const encMap = new Map<number, string>(); // code -> unicode (from encoding, not ToUnicode)
 
   let stemV: number | undefined;
   let italicAngle: number | undefined;
@@ -243,7 +237,7 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
     twoByte = true; // supported case: Identity-H (and best-effort otherwise)
     const descArr = asArr(ctx, fontDict.get(PDFName.of('DescendantFonts')));
     const cidFont = descArr ? asDict(ctx, descArr.get(0)) : undefined;
-    const dw = cidFont ? asNum(ctx, cidFont.get(PDFName.of('DW'))) ?? 1000 : 1000;
+    const dw = cidFont ? (asNum(ctx, cidFont.get(PDFName.of('DW'))) ?? 1000) : 1000;
     const wArr = cidFont ? asArr(ctx, cidFont.get(PDFName.of('W'))) : undefined;
     widthOf = parseCidWidths(ctx, wArr, dw);
     applyDescriptor(cidFont ? asDict(ctx, cidFont.get(PDFName.of('FontDescriptor'))) : undefined);
@@ -291,7 +285,7 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
     const desc = asDict(ctx, fontDict.get(PDFName.of('FontDescriptor')));
     applyDescriptor(desc);
     fontFile2 = desc ? decodeStream(lookup(ctx, desc.get(PDFName.of('FontFile2')))) : undefined;
-    const missingWidth = desc ? asNum(ctx, desc.get(PDFName.of('MissingWidth'))) ?? 0 : 0;
+    const missingWidth = desc ? (asNum(ctx, desc.get(PDFName.of('MissingWidth'))) ?? 0) : 0;
 
     // Encoding: base + differences
     let baseEncodingIsWinAnsi = true;
@@ -369,7 +363,11 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
   // Explicitly-sans family names are trusted; otherwise, when metadata gave no
   // serif verdict (munged subsets zero it out), sniff a stem glyph's outline.
   const strippedName = baseFont.replace(/^[A-Z]{6}\+/, '').toLowerCase();
-  if (/helvetica|arial|verdana|tahoma|segoe|roboto|futura|gill|franklin|grotes|gothic|lato|open ?sans|noto ?sans/.test(strippedName)) {
+  if (
+    /helvetica|arial|verdana|tahoma|segoe|roboto|futura|gill|franklin|grotes|gothic|lato|open ?sans|noto ?sans/.test(
+      strippedName,
+    )
+  ) {
     serifKnown = true;
   }
   if (!serifKnown && ttForStyle) {
@@ -470,10 +468,7 @@ export async function parseFont(pdfDoc: PDFDocument, res: string, fontDict: PDFD
 }
 
 /** Parse all fonts in a page's resources. */
-export async function parsePageFonts(
-  pdfDoc: PDFDocument,
-  resources: PDFDict | undefined,
-): Promise<Map<string, FontInfo>> {
+export async function parsePageFonts(pdfDoc: PDFDocument, resources: PDFDict | undefined): Promise<Map<string, FontInfo>> {
   const fonts = new Map<string, FontInfo>();
   if (!resources) return fonts;
   const ctx = pdfDoc.context;

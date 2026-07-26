@@ -87,7 +87,11 @@ describe('recent files', () => {
     const [pinnedEntry] = await listRecents();
     await setRecentPinned(pinnedEntry.hash, true);
     for (let i = 0; i < 5; i++) {
-      await recordRecent(new Uint8Array([i, i + 1, i + 2, 7]), { name: `f${i}.pdf`, pageCount: 1 }, { maxCount: 3, maxBytes: 1e9 });
+      await recordRecent(
+        new Uint8Array([i, i + 1, i + 2, 7]),
+        { name: `f${i}.pdf`, pageCount: 1 },
+        { maxCount: 3, maxBytes: 1e9 },
+      );
     }
     const list = await listRecents();
     expect(list.length).toBe(3);

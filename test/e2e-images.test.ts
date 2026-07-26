@@ -106,7 +106,7 @@ describe('image move', () => {
     await doc!.moveImage(0, img.id, 50, 50);
     let undone = await doc!.undo();
     expect(undone).toBeTruthy();
-    let view = doc!.getPageView(0);
+    const view = doc!.getPageView(0);
     expect(view.images[0].bbox.x).toBeCloseTo(100, 3);
     expect(view.images[0].bbox.y).toBeCloseTo(500, 3);
 

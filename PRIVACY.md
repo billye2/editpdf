@@ -4,7 +4,7 @@ PDF Edna runs entirely in your browser. Your PDFs are never uploaded anywhere.
 
 - **No network use.** Parsing, editing, rendering, and saving all happen
   locally. The extension makes no requests to any server. The only fetch it
-  can ever perform is downloading a `.pdf` URL *you* navigated to, into the
+  can ever perform is downloading a `.pdf` URL _you_ navigated to, into the
   local viewer — and only if you enabled auto-open (below).
 - **No telemetry, no analytics, no accounts.**
 - **No standing site access.** The extension installs with zero host

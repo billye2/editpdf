@@ -116,9 +116,7 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretRes
 
     const glyphs: RawGlyph[] = [];
     let text = '';
-    const decoded = font
-      ? font.decode(bytes)
-      : Array.from(bytes, (code) => ({ code, u: String.fromCharCode(code) }));
+    const decoded = font ? font.decode(bytes) : Array.from(bytes, (code) => ({ code, u: String.fromCharCode(code) }));
 
     for (const g of decoded) {
       const w1000 = font ? font.widthOf(g.code) : 500;
@@ -250,7 +248,7 @@ export function interpret(ops: Op[], fonts: Map<string, FontInfo>): InterpretRes
             if (el.k === 'str') {
               showString(el.bytes, opIndex, e, 'TJ');
             } else if (el.k === 'num') {
-              const adv = ((-el.v / 1000) * fontSize) * hScale;
+              const adv = (-el.v / 1000) * fontSize * hScale;
               tm = mul(translate(adv, 0), tm);
             }
           }

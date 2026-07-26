@@ -15,8 +15,7 @@ export default defineConfig({
         background: resolve(root, 'src/background/background.ts'),
       },
       output: {
-        entryFileNames: (chunk) =>
-          chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js',
+        entryFileNames: (chunk) => (chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js'),
       },
     },
   },

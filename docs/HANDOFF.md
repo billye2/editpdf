@@ -3,7 +3,7 @@
 Chrome extension (MV3) for true PDF text and image editing, fully
 client-side. Current version: see `package.json` (bumped by every release).
 Repo: `github.com/billye2/editpdf`
-(private). CI runs type-check + tests + build, plus a Playwright e2e job, on every push
+(private). CI runs type-check + lint (ESLint type-aware + Prettier) + tests + build, plus a Playwright e2e job, on every push
 (`.github/workflows/ci.yml`). `npm run release` bumps, builds, zips the
 Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
 
@@ -119,6 +119,12 @@ geometry. pdf.js only renders and serves as an independent cross-check in tests.
    translation in local space, emitted at full precision — `fmtNum`'s 4
    decimals drift under large CTM scales); delete drops just the `Do` (no
    graphics-state side effects).
+10. **Never nest a page's `/Contents` array.** Appending a stream by wrapping
+    the existing value (`ctx.obj([existing, ref])`) produces `[[6 0 R] 7 0 R]`
+    when Contents is already an array — invalid PDF that pdf.js silently
+    drops (the sample's whole "scan" layer rendered blank) while our engine
+    tolerates it, so no test caught it. Look up the existing value and `push`
+    into the array (see gen-samples.mjs / test/helpers.ts makeOcrPdf).
 
 ## Paragraph heuristics (text-model/paragraphs.ts)
 
@@ -136,6 +142,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:
+
 - `fonts-cid.test.ts` needs `/System/Library/Fonts/Supplemental/Arial Bold.ttf`.
 - `per-glyph-pdf.test.ts`, parts of `overflow.test.ts`, and
   `fallback-style.test.ts` need `test/corpus-EDIT_SAMPLE.pdf` — a **local-only
@@ -158,15 +165,27 @@ in `docs/manual-checklist.md`. In-browser verification pattern: drive the vite
 dev server (`viewer.html?file=/samples/…`) with browser automation, assert via
 DOM + canvas `getImageData` pixel counts.
 
+`node scripts/promo-video.mjs` — records the store promo video (webm) by
+driving the real viewer with Playwright: injected cursor/captions/title
+cards, no post-production. Re-record after any visual redesign.
+
 ## Versioning & release
 
 Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
+
 - `npm run bump` — bump `package.json` + `public/manifest.json` in lockstep.
 - `npm run release` — clean-tree check, type-check, tests, bump, build,
   commit `Release vX.Y.Z`, tag, push. `-- --dry-run` runs checks only.
 
 ## Known limitations / next work (rough priority)
 
+0. **Annotations — PLANNED FOR THE NEXT RELEASE** (user decision, July 2026):
+   let users ADD annotations (the current annotations.ts only flattens
+   existing FreeText at load). Scope to be designed — likely highlights,
+   text notes/comments, and maybe shapes. Groundwork that exists: the
+   annotation parsing/geometry in `src/engine/annotations.ts` (BBox→Rect
+   transform, resource merging) and the overlay/editor patterns in the
+   viewer. Keep the flatten-at-load behavior for FreeText intact.
 1. **Form XObject recursion** — text and images inside Form XObjects are
    invisible to the engine (Illustrator/InDesign PDFs). Largest real-world
    coverage gap.

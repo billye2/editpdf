@@ -118,13 +118,13 @@ export async function saveAs(): Promise<void> {
       types: [{ description: 'PDF files', accept: { 'application/pdf': ['.pdf'] } }],
     });
     const writable = await handle.createWritable();
-    await writable.write(doc.currentBytes.slice() as unknown as ArrayBuffer & Uint8Array);
+    await writable.write(doc.currentBytes.slice());
     await writable.close();
     markClean();
     toast(`Saved ${handle.name}.`);
   } catch (e) {
     if ((e as Error).name === 'AbortError') return;
-    toast(`Save failed: ${e instanceof Error ? e.message : e} — downloading a copy instead.`, 'warn', 6000);
+    toast(`Save failed: ${e instanceof Error ? e.message : String(e)} — downloading a copy instead.`, 'warn', 6000);
     download();
   }
 }
@@ -133,7 +133,7 @@ function download(): void {
   if (!doc.currentBytes) return;
   markClean(); // the downloaded copy carries the edits
   const copy = doc.currentBytes.slice();
-  const blob = new Blob([copy.buffer as ArrayBuffer], { type: 'application/pdf' });
+  const blob = new Blob([copy.buffer], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

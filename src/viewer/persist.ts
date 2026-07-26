@@ -115,7 +115,7 @@ export const RECENT_LIMITS: RecentLimits = { maxCount: 10, maxBytes: 100 * 1024 
  *  key beats no recents. */
 export async function hashBytes(bytes: Uint8Array, name: string): Promise<string> {
   try {
-    const digest = await crypto.subtle.digest('SHA-256', bytes.slice().buffer as ArrayBuffer);
+    const digest = await crypto.subtle.digest('SHA-256', bytes.slice().buffer);
     return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
   } catch {
     return `${name}|${bytes.length}`;

@@ -57,7 +57,7 @@ describe('content-stream round-trip', () => {
   });
 
   it('quote operators', () => {
-    roundtrip("BT /F1 12 Tf 14 TL (line one) Tj (line two) ' 2 0.5 (line three) \" ET");
+    roundtrip('BT /F1 12 Tf 14 TL (line one) Tj (line two) \' 2 0.5 (line three) " ET');
   });
 
   it('inline image passthrough', () => {

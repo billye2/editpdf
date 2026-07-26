@@ -2,17 +2,7 @@
 // models, and applies edits (paragraph reflow, OCR patch-over) by rewriting
 // page content streams.
 
-import {
-  PDFArray,
-  PDFDict,
-  PDFDocument,
-  PDFFont,
-  PDFName,
-  PDFPage,
-  PDFRawStream,
-  PDFRef,
-  StandardFonts,
-} from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFFont, PDFName, PDFPage, PDFRawStream, PDFRef, StandardFonts } from 'pdf-lib';
 import * as pdfLib from 'pdf-lib';
 import { parseContent, type Op } from './content-stream/parser';
 import { writeContent, mkOp, num, name, str } from './content-stream/writer';
@@ -22,7 +12,7 @@ import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type 
 import { bundledKeyFor, bundledBytes, bundledCanEncode, bundledWidth, isBundledKey } from './fonts/fallback-fonts';
 import { parseTrueType } from './fonts/truetype';
 import { buildParagraphs, buildOcrWords, type ParaMeta, type OcrWordMeta } from './text-model/paragraphs';
-import { planReflow, type FontChoice, type Measurer } from './reflow/reflow';
+import { planReflow, type Measurer } from './reflow/reflow';
 import { flattenFreeText } from './annotations';
 import type { EditOutcome, LoadOutcome, PageView, Rect, RGB } from '../shared/types';
 
@@ -314,7 +304,7 @@ export class EditableDocument {
     if (!font) {
       font = isBundledKey(key)
         ? await this.pdfDoc.embedFont(bundledBytes(key), { subset: true })
-        : await this.pdfDoc.embedFont(key as StandardFonts);
+        : await this.pdfDoc.embedFont(key);
       this.stdFonts.set(key, font);
     }
     return font;
@@ -338,14 +328,14 @@ export class EditableDocument {
       let res = this.lookup(st.page.node.get(PDFName.of('Resources')));
       if (!(res instanceof PDFDict)) {
         const inherited = this.pageResources(st.page);
-        const clone = this.ctx().obj({}) as PDFDict;
+        const clone = this.ctx().obj({});
         if (inherited) for (const [k, v] of inherited.entries()) clone.set(k, v);
         st.page.node.set(PDFName.of('Resources'), clone);
         res = clone;
       }
       let fontDict = this.lookup((res as PDFDict).get(PDFName.of('Font')));
       if (!(fontDict instanceof PDFDict)) {
-        fontDict = this.ctx().obj({}) as PDFDict;
+        fontDict = this.ctx().obj({});
         (res as PDFDict).set(PDFName.of('Font'), fontDict as PDFDict);
       }
       (fontDict as PDFDict).set(PDFName.of(resName), font.ref);
@@ -434,7 +424,7 @@ export class EditableDocument {
       f.dicts.fontDict.set(PDFName.of('ToUnicode'), ctx.register(stream));
       if (f.dicts.cidFont) {
         const wVal = this.lookup(f.dicts.cidFont.get(PDFName.of('W')));
-        const newW = ctx.obj([]) as PDFArray;
+        const newW = ctx.obj([]);
         if (wVal instanceof PDFArray) {
           for (let i = 0; i < wVal.size(); i++) newW.push(wVal.get(i));
         }
