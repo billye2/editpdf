@@ -43,6 +43,10 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Move an image so it overlaps text drawn after it → the text still paints ON TOP (z-order preserved)
 - [ ] Saved copy opens in Preview/Chrome with the image moved/removed as expected
 
+## Annotations
+- [ ] Add text to a PDF in Edge (… menu → Add text), open it in EditPDF → the added text has a paragraph outline and is editable
+- [ ] After Save As, the FreeText annotation is gone (flattened); links in the document still work
+
 ## Persistence & permissions
 - [ ] Edit a doc, close the tab → warning prompt; reopen viewer → restore bar offers the unsaved edits; Restore brings them back
 - [ ] Discard on the restore bar, then reload → no offer reappears

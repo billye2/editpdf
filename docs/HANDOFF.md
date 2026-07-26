@@ -22,6 +22,13 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   `Do` of a `/Subtype /Image` XObject is an independent placement (bbox = CTM
   × unit square). Inline images (`BI…EI`) and images nested in Form XObjects
   are untouched (round-trip byte-exactly).
+- **FreeText annotations** (text added by Edge/Acrobat/Preview text tools)
+  are flattened into the page content stream at load (`annotations.ts`:
+  spec 12.5.5 BBox→Rect transform, resource merge with rename-on-collision,
+  annotation removed) — so that text is editable like any other paragraph.
+  Gotcha encoded there: graphics state persists ACROSS content streams, so
+  the original streams are first sandwiched in their own q/Q (real files
+  leave a scaled CTM dangling). Other annotation types are untouched.
 - Save is always Save As (File System Access picker, `-edited` suggested name;
   falls back to a browser download) — the original file is never overwritten.
   There is no separate Download button.

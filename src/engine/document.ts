@@ -21,6 +21,7 @@ import { parsePageFonts, stdFontFor, styleFromName, generateToUnicodeCMap, type 
 import { parseTrueType } from './fonts/truetype';
 import { buildParagraphs, buildOcrWords, type ParaMeta, type OcrWordMeta } from './text-model/paragraphs';
 import { planReflow, type FontChoice, type Measurer } from './reflow/reflow';
+import { flattenFreeText } from './annotations';
 import type { EditOutcome, LoadOutcome, PageView, Rect, RGB } from '../shared/types';
 
 const enc = new TextEncoder();
@@ -88,6 +89,10 @@ export class EditableDocument {
     }
     try {
       doc.pageList = doc.pdfDoc.getPages();
+      // FreeText annotations (text added by Edge/Acrobat/Preview text tools)
+      // become ordinary — and therefore editable — page content. Cheap: only
+      // pages that actually carry FreeText annotations do any work.
+      for (const page of doc.pageList) flattenFreeText(doc.pdfDoc, page);
       doc.pages = doc.pageList.map(() => null);
       if (!opts?.lazy) {
         for (let i = 0; i < doc.pageList.length; i++) await doc.buildPage(i);

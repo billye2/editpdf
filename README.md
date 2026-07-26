@@ -10,6 +10,7 @@ Maintainers: start with **[docs/HANDOFF.md](docs/HANDOFF.md)** — architecture,
 - **Scanned PDFs with an OCR layer** — the visible "text" in a scan is image pixels; the OCR text is invisible (text render mode 3). Editing a word paints a background-color-matched patch over the original pixels and draws crisp replacement text on top. The replacement is real, visible text, so search/copy stay in sync automatically.
 - **Overflow policy** — if reflowed text doesn't fit the paragraph box, the font shrinks down to a 90% floor and the paragraph may grow into measured free space below it; an edit that would overlap other content is rejected with a clear error (overflow is never drawn over other content).
 - **Images** — XObject image placements are editable objects: drag to move (the content stream is mutated in place at the `Do` operator, preserving z-order), click-select and delete.
+- **Text added by other tools** — FreeText annotations (Edge / Acrobat / Preview "add text") are flattened into real page content at load, so that text is editable, reflowable, and deletable like any native paragraph. Links and other annotations are preserved.
 
 Stack: [pdf.js](https://mozilla.github.io/pdf.js/) for rendering, a custom content-stream engine (lexer → parser → interpreter → writer) as the single source of truth for text geometry, [pdf-lib](https://pdf-lib.js.org/) for document surgery and saving. The whole engine runs in a Web Worker (Comlink).
 
