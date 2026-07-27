@@ -44,7 +44,9 @@ run(`cd dist && zip -qr "../${zipName}" .`);
 // 6. commit, tag, push
 run('git add package.json public/manifest.json');
 run(`git commit -m "Release v${next}"`);
-run(`git tag v${next}`);
+// annotated, not lightweight: `git push --follow-tags` only pushes annotated
+// tags — lightweight ones silently stayed local for a dozen releases
+run(`git tag -a v${next} -m "Release v${next}"`);
 run('git push --follow-tags');
 
 console.log(`\nReleased v${next} (was ${current}). Store upload: ${zipName}; load dist/ in Chrome to test.`);
