@@ -133,6 +133,7 @@ const HELP_TIPS = [
   'Tip: drag an image to move it; click it, then press Delete to remove it.',
   'Tip: while editing, hold and drag the ✥ handle to move the paragraph — spacing and fonts stay exactly as they were.',
   'Tip: paragraphs can be dragged to a new spot directly — press, drag past a few pixels, and drop.',
+  'Tip: turn on Show boxes before moving text — seeing every text block helps you avoid drops that would overlap other text.',
   'Tip: the ✕ at an edit box corner deletes the whole paragraph.',
   'Tip: Save PDF never overwrites your original — it always writes a new file.',
   'Tip: drop a PDF anywhere on the page to open it.',
