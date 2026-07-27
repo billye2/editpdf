@@ -18,9 +18,14 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   and paragraph-level text coloring. Paragraph delete via the edit box ✕.
   Paragraphs can also be **dragged to move** (translate-only: kerning,
   justification, fonts, and paint order are untouched — see invariant 11).
-  Free placement like images — no destination overlap check; dropping flush
-  against same-styled text may merge the outlines on the next render
-  (paragraph detection is heuristic and generation-scoped). Because the bare
+  Placement is free EXCEPT onto other text: destinations that intersect
+  another paragraph — or come within the detector's merge window of it
+  (vertical margin 1.9 × font size) — are REJECTED with a warning
+  (`overlapsOtherText` in document.ts; guards both `moveParagraph` and
+  `editParagraph`'s offset, before the undo snapshot). Without the guard
+  the heuristic detector would fuse the blocks on the next generation and
+  a later edit would re-encode both texts as one. Text over images is
+  still allowed. Because the bare
   drag gesture is not discoverable, the edit box also carries a **✥ move
   handle** (next to the ✕): press-and-drag moves the whole edit surface,
   deltas accumulate across drags, and commit routes unchanged text through
@@ -173,7 +178,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 109 tests, including the jsdom viewer harness
+`npx vitest run` — 114 tests, including the jsdom viewer harness
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:

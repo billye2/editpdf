@@ -24,7 +24,9 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Drag a paragraph over an image drawn after it → the image still paints ON TOP (moved in place, z-order preserved)
 - [ ] Undo restores the moved paragraph to its old spot; Redo re-applies
 - [ ] Saved copy shows the move in Preview/Acrobat and the moved text is still searchable
-- [ ] Known quirk: dropping a paragraph flush against same-styled text merges their outlines on the next render (heuristic detection)
+- [ ] Drag a paragraph onto (or within a line-height of) other text → it bounces back with an "overlaps other text" toast; the document is unchanged and Undo stays disabled
+- [ ] Same via the ✥ handle: move the edit box over other text and commit → warning toast, nothing applied
+- [ ] Dropping text over an image is still allowed (only text-on-text is blocked)
 
 ## Scanned + OCR (scanned.pdf)
 

@@ -466,6 +466,22 @@ export class EditableDocument {
     return Math.max(0, bottom - highestTopBelow - 4);
   }
 
+  /** True if `bbox` intersects another paragraph's bbox expanded vertically
+   *  by a merge-guard margin — the zone where buildParagraphs would fuse the
+   *  two blocks into one on the next generation (its merge window is a
+   *  vertical gap ≤ 1.9 × font size with x-overlap). Used to refuse moves
+   *  whose destination would silently merge with other text. */
+  private overlapsOtherText(st: PageState, selfId: string, bbox: Rect, fontSize: number): boolean {
+    for (const other of st.paras.values()) {
+      if (other.id === selfId) continue;
+      const margin = 1.9 * Math.max(fontSize, other.fontSize);
+      if (bbox.x + bbox.w <= other.bbox.x || bbox.x >= other.bbox.x + other.bbox.w) continue;
+      if (bbox.y + bbox.h <= other.bbox.y - margin || bbox.y >= other.bbox.y + other.bbox.h + margin) continue;
+      return true;
+    }
+    return false;
+  }
+
   private snapshot(pageIndex: number): void {
     // edit paths ensure the page model exists before snapshotting
     this.undoStack.push({ pageIndex, ops: [...this.pages[pageIndex]!.ops] });
@@ -496,6 +512,12 @@ export class EditableDocument {
     const sameColor = !color || color.every((c, i) => Math.abs(c - para.color[i]) < 1e-3);
     if (newText.trim() === para.text.trim() && sameColor && !colorRanges?.length && !moved) {
       return { status: 'ok', bytes: await this.save() };
+    }
+    if (moved) {
+      const dest: Rect = { x: para.bbox.x + odx, y: para.bbox.y + ody, w: para.bbox.w, h: para.bbox.h };
+      if (this.overlapsOtherText(st, para.id, dest, para.fontSize)) {
+        return { status: 'error', message: 'That spot overlaps other text — the paragraph was not moved.' };
+      }
     }
 
     const measurer = await this.measurerFor(st);
@@ -657,6 +679,14 @@ export class EditableDocument {
     const st = this.pages[pageIndex];
     const para = st?.paras.get(paragraphId);
     if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+
+    // Refuse destinations that overlap (or nearly touch) other text — the
+    // paragraph detector would merge the blocks on the next generation, and
+    // a later edit would re-encode both texts as one.
+    const dest: Rect = { x: para.bbox.x + dx, y: para.bbox.y + dy, w: para.bbox.w, h: para.bbox.h };
+    if (this.overlapsOtherText(st, para.id, dest, para.fontSize)) {
+      return { status: 'error', message: 'That spot overlaps other text — the paragraph was not moved.' };
+    }
 
     // A single TJ can span two detected paragraphs (column split on a huge
     // kern) — translating the whole op would drag the other column along.

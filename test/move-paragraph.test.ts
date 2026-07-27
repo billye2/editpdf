@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { EditableDocument } from '../src/engine/document';
-import { makeParagraphPdf, makeContentPdf } from './helpers';
+import { makeParagraphPdf, makeContentPdf, makeImagePdf } from './helpers';
 import type { Rect } from '../src/shared/types';
 
 interface TextItem {
@@ -62,7 +62,7 @@ describe('moveParagraph: Tm-positioned text (pdf-lib output)', () => {
     const itemsBefore = await pdfjsTextItems(bytes);
     const p1 = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
 
-    const result = await doc.moveParagraph(0, p1.id, 50, -30);
+    const result = await doc.moveParagraph(0, p1.id, 50, -200);
     const itemsAfter = await pdfjsTextItems(result.bytes!);
     expect(itemsAfter.length).toBe(itemsBefore.length);
     for (const b of itemsBefore) {
@@ -70,7 +70,7 @@ describe('moveParagraph: Tm-positioned text (pdf-lib output)', () => {
       expect(a).toBeTruthy();
       if (p1.text.includes(b.str.trim())) {
         expect(a.x).toBeCloseTo(b.x + 50, 4);
-        expect(a.y).toBeCloseTo(b.y - 30, 4);
+        expect(a.y).toBeCloseTo(b.y - 200, 4);
       } else {
         expect(a.x).toBeCloseTo(b.x, 6);
         expect(a.y).toBeCloseTo(b.y, 6);
@@ -207,6 +207,65 @@ describe('moveParagraph: transforms and kerning', () => {
   });
 });
 
+describe('moveParagraph: overlap guard (would-merge destinations are refused)', () => {
+  it('refuses a drop directly onto another paragraph and leaves the document unchanged', async () => {
+    const bytes = await makeParagraphPdf();
+    const doc = await reload(bytes);
+    const before = doc.getPageView(0);
+    const p1 = before.paragraphs.find((p) => p.text.startsWith('The quick'))!;
+    const p2 = before.paragraphs.find((p) => p.text.startsWith('A second'))!;
+
+    const result = await doc.moveParagraph(0, p1.id, 0, p2.bbox.y - p1.bbox.y);
+    expect(result.status).toBe('error');
+    expect(result.message).toMatch(/overlaps other text/);
+
+    const after = doc.getPageView(0);
+    expect(after.paragraphs.find((p) => p.text.startsWith('The quick'))!.bbox).toEqual(p1.bbox);
+    expect(after.paragraphs.find((p) => p.text.startsWith('A second'))!.bbox).toEqual(p2.bbox);
+  });
+
+  it('refuses a near-drop inside the merge margin (no strict intersection)', async () => {
+    const bytes = await makeParagraphPdf();
+    const doc = await reload(bytes);
+    const p1 = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
+    // 16pt down: p1's bottom still sits ~10pt clear of p2 (no bbox intersection),
+    // but the baseline gap enters the detector's merge window — a naive
+    // intersection test would allow this and the blocks would fuse
+    const result = await doc.moveParagraph(0, p1.id, 0, -16);
+    expect(result.status).toBe('error');
+  });
+
+  it('a rejected move takes no undo snapshot', async () => {
+    const bytes = await makeParagraphPdf();
+    const doc = await reload(bytes);
+    const p1 = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
+    await doc.moveParagraph(0, p1.id, 0, -16);
+    expect(doc.canUndo()).toBe(false);
+  });
+
+  it('editParagraph with an overlapping offset is refused', async () => {
+    const bytes = await makeParagraphPdf();
+    const doc = await reload(bytes);
+    const p1 = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
+    const result = await doc.editParagraph(0, p1.id, p1.text.replace('quick', 'swift'), undefined, undefined, {
+      dx: 0,
+      dy: -16,
+    });
+    expect(result.status).toBe('error');
+    expect(result.message).toMatch(/overlaps other text/);
+  });
+
+  it('still allows dropping text over an image (only text-on-text is guarded)', async () => {
+    const bytes = await makeImagePdf([{ x: 100, y: 500, w: 200, h: 150 }], { withText: true });
+    const doc = await reload(bytes);
+    const para = doc.getPageView(0).paragraphs.find((p) => p.text.includes('anchor'))!;
+    const img = doc.getPageView(0).images[0];
+    // land the text inside the image bbox
+    const result = await doc.moveParagraph(0, para.id, img.bbox.x - para.bbox.x + 20, img.bbox.y - para.bbox.y + 50);
+    expect(result.status).toBe('ok');
+  });
+});
+
 describe('moveParagraph: z-order, composition, history', () => {
   it('moves in place — the moved ops stay before later-drawn content', async () => {
     const bytes = await makeContentPdf(
@@ -233,14 +292,14 @@ describe('moveParagraph: z-order, composition, history', () => {
     const doc = await reload(bytes);
     let para = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
     const orig = center(para.bbox);
-    await doc.moveParagraph(0, para.id, 20, 10);
+    await doc.moveParagraph(0, para.id, 20, 15);
     para = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
-    const result = await doc.moveParagraph(0, para.id, 15, -5);
+    const result = await doc.moveParagraph(0, para.id, 15, 10);
 
     const moved = (await reload(result.bytes!)).getPageView(0).paragraphs.find((p) => p.text.startsWith('The quick'))!;
     const c = center(moved.bbox);
     expect(c.x).toBeCloseTo(orig.x + 35, 3);
-    expect(c.y).toBeCloseTo(orig.y + 5, 3);
+    expect(c.y).toBeCloseTo(orig.y + 25, 3);
   });
 
   it('a moved paragraph can then be edited at its new location', async () => {
@@ -264,11 +323,11 @@ describe('moveParagraph: z-order, composition, history', () => {
     await doc.editParagraph(0, para.id, para.text.replace('second', 'edited'));
 
     para = doc.getPageView(0).paragraphs.find((p) => p.text.includes('edited'))!;
-    const result = await doc.moveParagraph(0, para.id, 33, -150);
+    const result = await doc.moveParagraph(0, para.id, 33, -200);
     expect(result.status).toBe('ok');
     const moved = (await reload(result.bytes!)).getPageView(0).paragraphs.find((p) => p.text.includes('edited'))!;
     expect(moved.bbox.x).toBeCloseTo(para.bbox.x + 33, 3);
-    expect(moved.bbox.y).toBeCloseTo(para.bbox.y - 150, 3);
+    expect(moved.bbox.y).toBeCloseTo(para.bbox.y - 200, 3);
   });
 
   it('editParagraph with an offset writes the regenerated text at the shifted position', async () => {
