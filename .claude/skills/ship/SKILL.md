@@ -43,6 +43,11 @@ not duplicate; keep it terse.
 
 - `gh-axi pr list` — if PRs are open, review and merge the green ones (ask
   the user about anything non-trivial). Report "no PRs" otherwise.
+- **`npm run build` right after committing** — `dist/` must always reflect
+  the just-committed code, and tell the user so: reload PDF Edna in
+  `chrome://extensions` (↻) to test the changes NOW, without waiting for CI
+  or the release. (A stale `dist/` once made the user think a shipped fix
+  didn't work.)
 - Push, then confirm the CI run for the pushed commit succeeds
   (`gh-axi run list`, poll with an until-loop in the background
   (`run_in_background`); never assume). Don't make the user sit through this
