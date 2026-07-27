@@ -3,6 +3,17 @@
 Paste-ready copy for the developer dashboard. Keep in sync with
 `public/manifest.json` and `PRIVACY.md`.
 
+## Assets
+
+- **Icon**: `src/icons/icon.svg` (blue rounded tile, bold E — same visual
+  language as sibling PDF Mana). `npm run gen:icons` rasterizes it to
+  `public/icons/icon{16,32,48,128}.png`, which the manifest references and
+  the build copies into `dist/`. The 128px PNG is the store-listing icon.
+- **Screenshots** (5 × 1280×800): `npm run build && npm run shots` →
+  `release/screenshots/0{1..5}-*.png`. Branded frames: live captures for
+  open/drop, retype-reflow, and recolor; abstract illustrations for
+  drag-to-rearrange (A·B·C → C·A·B) and typo fixes.
+
 ## Permission justifications
 
 **`declarativeNetRequest`**

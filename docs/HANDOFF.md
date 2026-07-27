@@ -46,10 +46,16 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   unsaved edits (drop/picker/recents/sample) asks for confirmation first.
 - Viewer UI (July 2026): "Sunny" restyle per the approved design in
   `docs/EditPDF UI style directions.zip` (Nunito/Baloo 2 bundled in
-  `public/fonts/` — extension pages must not hit CDNs). "?" button cycles
-  help tips through the toast; thumbtack icon-button next to Save PDF opens
-  previously-opened files; "Show boxes" switch is always visible and
-  persisted (formerly `?debug`). Keyboard: ⌘/Ctrl O · S · Z · ⇧Z · +/− · 0.
+  `public/fonts/` — extension pages must not hit CDNs). Header wordmark
+  "PDF Edna" with subheader "Edit Text ’n Arrange" (subheader hides only
+  below 760px; the store/manifest name keeps the longer tagline). "?" button
+  cycles help tips through the toast; thumbtack icon-button next to Save PDF
+  opens previously-opened files; "Show boxes" switch is always visible and
+  persisted (formerly `?debug`). Empty state mirrors sibling PDF Mana: the
+  dashed drop card is one big "open a file" button (80% of the window,
+  `#dropzone` must stay `width:100%` or main's centering shrink-wraps it);
+  inner buttons keep their own actions. Keyboard: ⌘/Ctrl O · S · Z · ⇧Z ·
+  +/− · 0.
 
 ## Architecture
 
@@ -202,9 +208,20 @@ cards, no post-production. Re-record after any visual redesign.
 
 Decimal rollover, NOT semver: `1.5.9 → 1.6.0` (and `1.9.9 → 2.0.0`).
 
-- `npm run bump` — bump `package.json` + `public/manifest.json` in lockstep.
+- `npm run bump` — bump `package.json` + `public/manifest.json` in lockstep
+  (Prettier-formats both — unformatted JSON once shipped a red release CI).
 - `npm run release` — clean-tree check, type-check, tests, bump, build,
   commit `Release vX.Y.Z`, tag, push. `-- --dry-run` runs checks only.
+  The moment it finishes, `dist/` IS the released build — reload the
+  unpacked extension in `chrome://extensions` to test immediately; don't
+  wait on CI for that.
+
+Store assets (icon + screenshots, PDF Mana's coral-red visual language with
+an E): see the Assets section of `docs/store-listing.md`. `npm run gen:icons`
+rebuilds `public/icons/` from `src/icons/icon.svg`; `npm run shots` (after a
+build) stages the five 1280×800 listing screenshots into
+`release/screenshots/`. The extension is NOT yet listed on the Chrome Web
+Store — the zip upload is manual via the developer dashboard.
 
 ## Known limitations / next work (rough priority)
 

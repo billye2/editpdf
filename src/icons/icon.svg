@@ -1,0 +1,16 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7d68"/>
+      <stop offset="1" stop-color="#ec4f47"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded-square tile (same language and palette as sibling PDF Mana) -->
+  <rect x="0" y="0" width="128" height="128" rx="30" fill="url(#bg)"/>
+  <!-- soft top highlight -->
+  <rect x="0" y="0" width="128" height="62" rx="30" fill="#ffffff" opacity="0.10"/>
+  <!-- bold E (Edna · Edit) -->
+  <path d="M 88 40 L 42 40 L 42 92 L 88 92 M 42 66 L 76 66"
+        fill="none" stroke="#ffffff" stroke-width="14"
+        stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
