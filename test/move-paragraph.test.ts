@@ -255,6 +255,38 @@ describe('moveParagraph: overlap guard (would-merge destinations are refused)', 
     expect(result.message).toMatch(/overlaps other text/);
   });
 
+  it('allows a heading to slide sideways past nearby SMALLER text (unmergeable sizes)', async () => {
+    // 22pt heading with 11pt text right below — inside the 1.9× margin, but
+    // the detector could never merge across a >15% size gap, so a horizontal
+    // re-centering move must be allowed
+    const bytes = await makeContentPdf(
+      [
+        'BT /F1 22 Tf 72 700 Td (Big Section Heading) Tj ET',
+        'BT /F1 11 Tf 72 682 Td (small caption text right below) Tj ET',
+      ].join('\n'),
+    );
+    const doc = await reload(bytes);
+    const heading = doc.getPageView(0).paragraphs.find((p) => p.fontSize > 20)!;
+    const result = await doc.moveParagraph(0, heading.id, 120, 0);
+    expect(result.status).toBe('ok');
+    const moved = (await reload(result.bytes!)).getPageView(0).paragraphs.find((p) => p.fontSize > 20)!;
+    expect(moved.bbox.x).toBeCloseTo(heading.bbox.x + 120, 3);
+  });
+
+  it('still refuses STRICT intersection even across unmergeable sizes', async () => {
+    const bytes = await makeContentPdf(
+      [
+        'BT /F1 22 Tf 72 700 Td (Big Section Heading) Tj ET',
+        'BT /F1 11 Tf 72 640 Td (small caption text far below) Tj ET',
+      ].join('\n'),
+    );
+    const doc = await reload(bytes);
+    const heading = doc.getPageView(0).paragraphs.find((p) => p.fontSize > 20)!;
+    const caption = doc.getPageView(0).paragraphs.find((p) => p.fontSize < 15)!;
+    const result = await doc.moveParagraph(0, heading.id, 0, caption.bbox.y - heading.bbox.y);
+    expect(result.status).toBe('error');
+  });
+
   it('still allows dropping text over an image (only text-on-text is guarded)', async () => {
     const bytes = await makeImagePdf([{ x: 100, y: 500, w: 200, h: 150 }], { withText: true });
     const doc = await reload(bytes);

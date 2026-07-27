@@ -18,9 +18,11 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   and paragraph-level text coloring. Paragraph delete via the edit box ✕.
   Paragraphs can also be **dragged to move** (translate-only: kerning,
   justification, fonts, and paint order are untouched — see invariant 11).
-  Placement is free EXCEPT onto other text: destinations that intersect
-  another paragraph — or come within the detector's merge window of it
-  (vertical margin 1.9 × font size) — are REJECTED with a warning. Without
+  Placement is free EXCEPT onto other text: destinations that strictly
+  intersect another paragraph are always REJECTED with a warning; the wider
+  merge-window margin (vertical 1.9 × font size) applies only between
+  MERGEABLE font sizes (≤15% apart, mirroring the detector's discontinuity
+  refusal) — so a 22pt heading can slide sideways past its 10pt subtitle. Without
   the guard the heuristic detector would fuse the blocks on the next
   generation and a later edit would re-encode both texts as one. Text over
   images is still allowed. The check lives twice, deliberately: the viewer
@@ -185,7 +187,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 114 tests, including the jsdom viewer harness
+`npx vitest run` — 116 tests, including the jsdom viewer harness
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:

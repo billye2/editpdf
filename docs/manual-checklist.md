@@ -29,6 +29,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Clicking a floating box does NOT open the editor; starting to drag a different paragraph puts the floating one back first
 - [ ] Same via the ✥ handle: commit with the edit box over other text → warning toast and the edit session STAYS OPEN at its floating spot (typed text kept); drag ✥ onward or Esc to cancel
 - [ ] Dropping text over an image is still allowed (only text-on-text is blocked)
+- [ ] A large heading can slide sideways past its smaller subtitle (e.g. center the sample's title) — the merge margin only applies between similar font sizes; strict text-on-text overlap is still refused
 
 ## Scanned + OCR (scanned.pdf)
 

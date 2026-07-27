@@ -466,16 +466,21 @@ export class EditableDocument {
     return Math.max(0, bottom - highestTopBelow - 4);
   }
 
-  /** True if `bbox` intersects another paragraph's bbox expanded vertically
-   *  by a merge-guard margin — the zone where buildParagraphs would fuse the
-   *  two blocks into one on the next generation (its merge window is a
-   *  vertical gap ≤ 1.9 × font size with x-overlap). Used to refuse moves
-   *  whose destination would silently merge with other text. */
+  /** True if placing text at `bbox` would collide with another paragraph:
+   *  strict bbox intersection (text painting over text) is always refused;
+   *  the wider merge-guard margin (vertical 1.9 × font size — the window
+   *  where buildParagraphs would fuse the blocks on the next generation)
+   *  applies only between MERGEABLE font sizes, mirroring the detector's
+   *  >15% size-discontinuity refusal — so a 22pt heading can be re-centered
+   *  beside its 10pt subtitle. Keep in sync with moveWouldOverlap
+   *  (viewer, util.ts). */
   private overlapsOtherText(st: PageState, selfId: string, bbox: Rect, fontSize: number): boolean {
     for (const other of st.paras.values()) {
       if (other.id === selfId) continue;
-      const margin = 1.9 * Math.max(fontSize, other.fontSize);
       if (bbox.x + bbox.w <= other.bbox.x || bbox.x >= other.bbox.x + other.bbox.w) continue;
+      if (bbox.y + bbox.h > other.bbox.y && bbox.y < other.bbox.y + other.bbox.h) return true;
+      if (Math.abs(fontSize - other.fontSize) > 0.15 * Math.max(fontSize, other.fontSize)) continue;
+      const margin = 1.9 * Math.max(fontSize, other.fontSize);
       if (bbox.y + bbox.h <= other.bbox.y - margin || bbox.y >= other.bbox.y + other.bbox.h + margin) continue;
       return true;
     }

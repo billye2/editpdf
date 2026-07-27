@@ -5,16 +5,19 @@ import type { PageViewport } from 'pdfjs-dist';
 import type { ParagraphView, RGB, Rect } from '../shared/types';
 
 /** Viewer-side mirror of the engine's overlap guard (`overlapsOtherText` in
- *  document.ts): would placing `self` at (dx, dy) intersect — or come within
- *  the paragraph detector's merge window of (vertical margin 1.9 × font
- *  size) — another paragraph? Lets the drag UI refuse a drop instantly; the
- *  engine check remains the backstop. */
+ *  document.ts — keep the two in sync): strict intersection with another
+ *  paragraph is always refused; the merge-guard margin (vertical
+ *  1.9 × font size) applies only between mergeable font sizes (the
+ *  detector refuses merges across a >15% size discontinuity). Lets the
+ *  drag UI refuse a drop instantly; the engine check is the backstop. */
 export function moveWouldOverlap(paragraphs: ParagraphView[], self: ParagraphView, dx: number, dy: number): boolean {
   const dest = { x: self.bbox.x + dx, y: self.bbox.y + dy, w: self.bbox.w, h: self.bbox.h };
   for (const other of paragraphs) {
     if (other.id === self.id) continue;
-    const margin = 1.9 * Math.max(self.fontSize, other.fontSize);
     if (dest.x + dest.w <= other.bbox.x || dest.x >= other.bbox.x + other.bbox.w) continue;
+    if (dest.y + dest.h > other.bbox.y && dest.y < other.bbox.y + other.bbox.h) return true;
+    if (Math.abs(self.fontSize - other.fontSize) > 0.15 * Math.max(self.fontSize, other.fontSize)) continue;
+    const margin = 1.9 * Math.max(self.fontSize, other.fontSize);
     if (dest.y + dest.h <= other.bbox.y - margin || dest.y >= other.bbox.y + other.bbox.h + margin) continue;
     return true;
   }
