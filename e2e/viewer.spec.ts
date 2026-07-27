@@ -167,3 +167,34 @@ test('keyboard zoom shortcuts work once a document is open', async ({ page }) =>
   await page.keyboard.press('ControlOrMeta+-');
   await expect(page.locator('#zoom-label')).toHaveText('125%');
 });
+
+test('drag-moving a paragraph onto another is rejected with a warning', async ({ page }) => {
+  await loadSample(page);
+  const boxes = page.locator('.para-box');
+  await expect(boxes.nth(4)).toBeVisible();
+  const from = (await boxes.nth(3).boundingBox())!;
+  const to = (await boxes.nth(4).boundingBox())!;
+
+  await page.mouse.move(from.x + 20, from.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(to.x + 25, to.y + 12, { steps: 8 });
+  await page.mouse.up();
+
+  const toast = page.locator('#toast');
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('overlaps other text');
+  // the box snapped back — nothing moved
+  const after = (await boxes.nth(3).boundingBox())!;
+  expect(Math.abs(after.x - from.x)).toBeLessThan(1);
+  expect(Math.abs(after.y - from.y)).toBeLessThan(1);
+});
+
+test('drag-moving a paragraph into empty space applies', async ({ page }) => {
+  await loadSample(page);
+  const from = (await page.locator('.para-box').nth(3).boundingBox())!;
+  await page.mouse.move(from.x + 20, from.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 230, from.y + 320, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('#toast')).toHaveText('Edit applied.');
+});
