@@ -168,7 +168,7 @@ test('keyboard zoom shortcuts work once a document is open', async ({ page }) =>
   await expect(page.locator('#zoom-label')).toHaveText('125%');
 });
 
-test('drag-moving a paragraph onto another is rejected with a warning', async ({ page }) => {
+test('overlapping drop warns and keeps the box floating; Esc puts it back', async ({ page }) => {
   await loadSample(page);
   const boxes = page.locator('.para-box');
   await expect(boxes.nth(4)).toBeVisible();
@@ -183,10 +183,39 @@ test('drag-moving a paragraph onto another is rejected with a warning', async ({
   const toast = page.locator('#toast');
   await expect(toast).toBeVisible();
   await expect(toast).toContainText('overlaps other text');
-  // the box snapped back — nothing moved
-  const after = (await boxes.nth(3).boundingBox())!;
-  expect(Math.abs(after.x - from.x)).toBeLessThan(1);
-  expect(Math.abs(after.y - from.y)).toBeLessThan(1);
+  // the box stays FLOATING at the drop spot, not snapped back
+  await expect(boxes.nth(3)).toHaveClass(/floating/);
+  const parked = (await boxes.nth(3).boundingBox())!;
+  expect(Math.abs(parked.y - from.y)).toBeGreaterThan(10);
+
+  // Esc returns it to where it started
+  await page.keyboard.press('Escape');
+  await expect(boxes.nth(3)).not.toHaveClass(/floating/);
+  const back = (await boxes.nth(3).boundingBox())!;
+  expect(Math.abs(back.x - from.x)).toBeLessThan(1);
+  expect(Math.abs(back.y - from.y)).toBeLessThan(1);
+});
+
+test('a floating box can be dragged on to an empty spot and applies', async ({ page }) => {
+  await loadSample(page);
+  const boxes = page.locator('.para-box');
+  const from = (await boxes.nth(3).boundingBox())!;
+  const to = (await boxes.nth(4).boundingBox())!;
+
+  // first drop overlaps → floats
+  await page.mouse.move(from.x + 20, from.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(to.x + 25, to.y + 12, { steps: 8 });
+  await page.mouse.up();
+  await expect(boxes.nth(3)).toHaveClass(/floating/);
+
+  // continue the drag from the floating box to empty space → applies
+  const parked = (await boxes.nth(3).boundingBox())!;
+  await page.mouse.move(parked.x + 20, parked.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 250, from.y + 330, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('#toast')).toHaveText('Edit applied.');
 });
 
 test('drag-moving a paragraph into empty space applies', async ({ page }) => {

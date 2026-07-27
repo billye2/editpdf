@@ -7,7 +7,7 @@ import type { PageViewport } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { engine } from './engine';
 import { toolbar, pagesEl } from './ui';
-import { rectToCss, cssPx } from './util';
+import { rectToCss, cssPx, moveWouldOverlap } from './util';
 import { doc, pageUIs, baseDims, rerender, applyEdit } from './state';
 import { beginParagraphEdit, beginOcrEdit } from './editors';
 import { wireImageBox, dropImageSelectionForPage } from './images';
@@ -120,6 +120,7 @@ export function buildOverlay(index: number): void {
     wireDragToMove(box, ui, {
       onClick: () => beginParagraphEdit(index, para),
       onDrop: (dx, dy) => void applyEdit(() => engine.moveParagraph(index, para.id, dx, dy), index),
+      validate: (dx, dy) => !moveWouldOverlap(view.paragraphs, para, dx, dy),
     });
     ui.overlay.append(box);
   }

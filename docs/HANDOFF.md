@@ -20,12 +20,17 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   justification, fonts, and paint order are untouched — see invariant 11).
   Placement is free EXCEPT onto other text: destinations that intersect
   another paragraph — or come within the detector's merge window of it
-  (vertical margin 1.9 × font size) — are REJECTED with a warning
-  (`overlapsOtherText` in document.ts; guards both `moveParagraph` and
-  `editParagraph`'s offset, before the undo snapshot). Without the guard
-  the heuristic detector would fuse the blocks on the next generation and
-  a later edit would re-encode both texts as one. Text over images is
-  still allowed. Because the bare
+  (vertical margin 1.9 × font size) — are REJECTED with a warning. Without
+  the guard the heuristic detector would fuse the blocks on the next
+  generation and a later edit would re-encode both texts as one. Text over
+  images is still allowed. The check lives twice, deliberately: the viewer
+  (`moveWouldOverlap` in util.ts, used by drag.ts's `validate`) refuses the
+  drop instantly and keeps the box FLOATING at the drop spot (amber dashed;
+  drag on to an empty area, or Esc puts it back — refused drops accumulate
+  the offset), and the engine (`overlapsOtherText` in document.ts, guarding
+  `moveParagraph` and `editParagraph`'s offset before the undo snapshot) is
+  the backstop for the ✥-handle path and stale views. Keep the two margins
+  identical. Because the bare
   drag gesture is not discoverable, the edit box also carries a **✥ move
   handle** (next to the ✕): press-and-drag moves the whole edit surface,
   deltas accumulate across drags, and commit routes unchanged text through

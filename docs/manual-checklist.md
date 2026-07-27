@@ -24,7 +24,9 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Drag a paragraph over an image drawn after it → the image still paints ON TOP (moved in place, z-order preserved)
 - [ ] Undo restores the moved paragraph to its old spot; Redo re-applies
 - [ ] Saved copy shows the move in Preview/Acrobat and the moved text is still searchable
-- [ ] Drag a paragraph onto (or within a line-height of) other text → it bounces back with an "overlaps other text" toast; the document is unchanged and Undo stays disabled
+- [ ] Drag a paragraph onto (or within a line-height of) other text → warning toast, and the box stays FLOATING (amber dashed) at the drop spot; the document is unchanged and Undo stays disabled
+- [ ] From the floating box: drag on to an empty area → move applies; or press Esc → box returns to its original spot
+- [ ] Clicking a floating box does NOT open the editor; starting to drag a different paragraph puts the floating one back first
 - [ ] Same via the ✥ handle: move the edit box over other text and commit → warning toast, nothing applied
 - [ ] Dropping text over an image is still allowed (only text-on-text is blocked)
 
