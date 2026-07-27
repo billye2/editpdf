@@ -20,7 +20,12 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   justification, fonts, and paint order are untouched — see invariant 11).
   Free placement like images — no destination overlap check; dropping flush
   against same-styled text may merge the outlines on the next render
-  (paragraph detection is heuristic and generation-scoped).
+  (paragraph detection is heuristic and generation-scoped). Because the bare
+  drag gesture is not discoverable, the edit box also carries a **✥ move
+  handle** (next to the ✕): press-and-drag moves the whole edit surface,
+  deltas accumulate across drags, and commit routes unchanged text through
+  `moveParagraph` (exact) or changed text through `editParagraph`'s
+  page-space `offset` (re-encode positioned at the new spot).
 - **Scanned PDFs with an OCR layer**: click a word → a background-matched
   patch covers the original pixels and crisp replacement text (which becomes
   the new searchable text layer) is drawn on top.
@@ -162,7 +167,7 @@ advances (≥ 0.15em), or inter-run gaps > 0.2×size.
 
 ## Testing
 
-`npx vitest run` — 108 tests, including the jsdom viewer harness
+`npx vitest run` — 109 tests, including the jsdom viewer harness
 (`test/viewer-dom.test.ts`: real viewer.html + main.ts with pdf.js/Comlink/
 Worker mocked; localStorage must be stubbed at test-file top level — vitest
 detaches jsdom's accessor from its window). Some groups auto-skip off-macOS/CI:

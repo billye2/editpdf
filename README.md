@@ -49,7 +49,7 @@ npm run release -- --dry-run  # run the checks, touch nothing
 ## Using it
 
 - **Open** a PDF (file picker, drag-and-drop, or `.pdf` URL interception).
-- Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text. The **✕** at the edit box corner deletes the whole paragraph. **Drag a paragraph** to move it (`Esc` mid-drag cancels) — the text keeps its exact spacing and fonts.
+- Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text. The **✕** at the edit box corner deletes the whole paragraph. **Drag a paragraph** to move it (`Esc` mid-drag cancels) — the text keeps its exact spacing and fonts. While editing, press and drag the **✥** handle next to the ✕ to move the paragraph without leaving the editor; committing applies your text changes and the move together.
 - **Images**: hover shows purple outlines; **drag** an image to move it, **click** to select and delete it (✕ button or Delete key).
 - **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
 - On scanned+OCR pages, words show **dashed purple boxes**; click one to patch-edit it (with its own ink-color picker).

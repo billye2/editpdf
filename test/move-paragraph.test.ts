@@ -271,6 +271,24 @@ describe('moveParagraph: z-order, composition, history', () => {
     expect(moved.bbox.y).toBeCloseTo(para.bbox.y - 150, 3);
   });
 
+  it('editParagraph with an offset writes the regenerated text at the shifted position', async () => {
+    const bytes = await makeParagraphPdf();
+    const doc = await reload(bytes);
+    const para = doc.getPageView(0).paragraphs.find((p) => p.text.startsWith('A second'))!;
+
+    const result = await doc.editParagraph(0, para.id, para.text.replace('second', 'edited'), undefined, undefined, {
+      dx: 40,
+      dy: -120,
+    });
+    expect(result.status).not.toBe('error');
+
+    const after = (await reload(result.bytes!)).getPageView(0);
+    const edited = after.paragraphs.find((p) => p.text.includes('edited'))!;
+    // re-encode changes metrics slightly — compare within a couple of points
+    expect(Math.abs(edited.bbox.x - (para.bbox.x + 40))).toBeLessThan(2);
+    expect(Math.abs(edited.bbox.y - (para.bbox.y - 120))).toBeLessThan(3);
+  });
+
   it('undo restores the original position; redo re-applies the move', async () => {
     const bytes = await makeParagraphPdf();
     const doc = await reload(bytes);

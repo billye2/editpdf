@@ -479,13 +479,22 @@ export class EditableDocument {
     newText: string,
     color?: RGB,
     colorRanges?: import('../shared/types').ColorRange[],
+    offset?: { dx: number; dy: number },
   ): Promise<EditOutcome> {
     await this.ensurePageReady(pageIndex);
     const st = this.pages[pageIndex];
     const para = st?.paras.get(paragraphId);
     if (!st || !para) return { status: 'error', message: 'Paragraph not found (the page may have changed).' };
+    // page-space (y-up) shift applied to the regenerated text; the emitted
+    // block runs under the page-level q/Q wrap (CTM identity), so page delta
+    // IS text delta. Overflow/width checks stay anchored to the source
+    // position. For an unchanged-text pure move use moveParagraph instead —
+    // it preserves the original operators exactly.
+    const odx = offset?.dx ?? 0;
+    const ody = offset?.dy ?? 0;
+    const moved = Math.hypot(odx, ody) > 1e-6;
     const sameColor = !color || color.every((c, i) => Math.abs(c - para.color[i]) < 1e-3);
-    if (newText.trim() === para.text.trim() && sameColor && !colorRanges?.length) {
+    if (newText.trim() === para.text.trim() && sameColor && !colorRanges?.length && !moved) {
       return { status: 'ok', bytes: await this.save() };
     }
 
@@ -593,7 +602,7 @@ export class EditableDocument {
         blocks.push(mkOp('rg', num(g.color[0]), num(g.color[1]), num(g.color[2])));
         lastColor = g.color;
       }
-      blocks.push(mkOp('Tm', num(1), num(0), num(0), num(1), num(g.x), num(g.y)));
+      blocks.push(mkOp('Tm', num(1), num(0), num(0), num(1), num(g.x + odx), num(g.y + ody)));
       blocks.push(mkOp('Tj', str(bytes)));
     }
     blocks.push(mkOp('ET'), mkOp('Q'));

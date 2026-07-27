@@ -18,6 +18,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Type Latin-Extended text (e.g. `Świętokrzyska` or `Łódź`) into any paragraph → succeeds with the "substitute font was used" notice (was a hard reject before the bundled fonts); saved copy renders and searches correctly
 - [ ] Type CJK (e.g. `恐竜`) → rejected with "not supported" message
 - [ ] Drag a paragraph → box follows the pointer, text lands where dropped; a plain click still opens the editor
+- [ ] In the open edit box, press-and-drag the ✥ handle (next to ✕) → the whole edit surface follows; release, keep typing, drag again — deltas stack; commit applies text + move together (unchanged text = exact translate-only move); Esc discards both
 - [ ] Escape mid-drag cancels; paragraph stays put
 - [ ] Zoom into moved text: spacing/kerning identical to before the move (justified paragraphs stay justified — a drag must never re-encode the text)
 - [ ] Drag a paragraph over an image drawn after it → the image still paints ON TOP (moved in place, z-order preserved)

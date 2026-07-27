@@ -93,6 +93,9 @@ export interface EngineAPI {
     newText: string,
     color?: RGB,
     colorRanges?: ColorRange[],
+    /** Page-space (y-up) shift for the regenerated text — used when the user
+     *  moved the paragraph via the edit box's move handle AND changed it. */
+    offset?: { dx: number; dy: number },
   ): Promise<EditOutcome>;
   deleteParagraph(pageIndex: number, paragraphId: string): Promise<EditOutcome>;
   /** Move a paragraph by (dx, dy) in page space (y-up) — translate-only, so

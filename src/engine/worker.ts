@@ -28,9 +28,10 @@ const api: EngineAPI = {
     newText: string,
     color?: RGB,
     colorRanges?: import('../shared/types').ColorRange[],
+    offset?: { dx: number; dy: number },
   ): Promise<EditOutcome> {
     if (!doc) throw new Error('No document loaded');
-    return doc.editParagraph(pageIndex, paragraphId, newText, color, colorRanges);
+    return doc.editParagraph(pageIndex, paragraphId, newText, color, colorRanges, offset);
   },
   async deleteParagraph(pageIndex: number, paragraphId: string): Promise<EditOutcome> {
     if (!doc) throw new Error('No document loaded');

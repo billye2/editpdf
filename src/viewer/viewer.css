@@ -812,6 +812,30 @@ button:disabled {
   background: #e96a6a;
 }
 
+.edit-move-btn {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #6ea3fb;
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  cursor: grab;
+  padding: 0;
+  z-index: 10;
+  touch-action: none;
+}
+
+.edit-move-btn:hover {
+  background: #3d8bfd;
+}
+
+.edit-move-btn:active {
+  cursor: grabbing;
+}
+
 .debug-run {
   position: absolute;
   border: 1px solid rgba(220, 38, 38, 0.6);

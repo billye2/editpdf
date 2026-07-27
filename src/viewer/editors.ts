@@ -148,7 +148,7 @@ export function beginParagraphEdit(pageIndex: number, para: ParagraphView): void
 
   const hint = document.createElement('div');
   hint.className = 'edit-hint';
-  hint.textContent = '⌘/Ctrl+Enter to apply · Esc to cancel · select text, then pick a color';
+  hint.textContent = '⌘/Ctrl+Enter to apply · Esc to cancel · drag ✥ to move · select text, then pick a color';
   hint.style.left = `${rect.left}px`;
 
   // Base color = whole-paragraph choice; selecting text first scopes the pick
@@ -210,22 +210,85 @@ export function beginParagraphEdit(pageIndex: number, para: ParagraphView): void
     void applyEdit(() => engine.deleteParagraph(pageIndex, para.id), pageIndex);
   });
 
+  // ✥ next to the ✕: press and drag to move the paragraph without leaving the
+  // edit session (the bare drag-the-outline gesture is not discoverable — most
+  // people don't press-and-hold on a textbox). The whole edit surface follows
+  // the pointer; deltas accumulate across drags and apply on commit.
+  const moveBtn = document.createElement('button');
+  moveBtn.type = 'button';
+  moveBtn.className = 'edit-move-btn';
+  moveBtn.textContent = '✥';
+  moveBtn.title = 'Drag to move this paragraph';
+  moveBtn.style.left = `${rect.left + 14}px`;
+  moveBtn.style.top = `${rect.top - 10}px`;
+  // keep the press from blurring the edit box into a premature commit
+  moveBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  let movedDx = 0; // accumulated page-space delta (y-up)
+  let movedDy = 0;
+  let cssDx = 0; // accumulated CSS-pixel delta (the floats' visual offset)
+  let cssDy = 0;
+  moveBtn.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      moveBtn.setPointerCapture(e.pointerId);
+    } catch {
+      // pointer may already be gone (fast click); listeners below still work
+    }
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0;
+      const dy = ev.clientY - y0;
+      for (const el of floats) el.style.transform = `translate(${cssDx + dx}px, ${cssDy + dy}px)`;
+    };
+    const onUp = (ev: PointerEvent) => {
+      moveBtn.removeEventListener('pointermove', onMove);
+      moveBtn.removeEventListener('pointerup', onUp);
+      cssDx += ev.clientX - x0;
+      cssDy += ev.clientY - y0;
+      // convert both endpoints through the viewport so page /Rotate is handled
+      const r = ui.canvas.getBoundingClientRect();
+      const [px0, py0] = ui.viewport.convertToPdfPoint(x0 - r.left, y0 - r.top);
+      const [px1, py1] = ui.viewport.convertToPdfPoint(ev.clientX - r.left, ev.clientY - r.top);
+      movedDx += px1 - px0;
+      movedDy += py1 - py0;
+      ed.focus(); // the edit session continues at the new position
+    };
+    moveBtn.addEventListener('pointermove', onMove);
+    moveBtn.addEventListener('pointerup', onUp);
+  });
+
   let done = false;
+  const floats = [ed, hint, colorRow.row, delBtn, moveBtn];
   const cleanup = () => {
     done = true;
-    ed.remove();
-    hint.remove();
-    colorRow.row.remove();
-    delBtn.remove();
+    for (const el of floats) el.remove();
   };
   const commit = async () => {
     if (done) return;
     const { text: newText, ranges } = serializeRich(ed, baseColor);
     const color = baseChosen ?? undefined;
     cleanup();
-    if (newText.trim() === para.text.trim() && !color && !ranges.length) return;
+    const moved = Math.hypot(movedDx, movedDy) >= 0.01;
+    const changed = newText.trim() !== para.text.trim() || !!color || ranges.length > 0;
+    if (!changed && !moved) return;
+    if (!changed && moved) {
+      // pure move: translate-only path, keeps the original operators exactly
+      await applyEdit(() => engine.moveParagraph(pageIndex, para.id, movedDx, movedDy), pageIndex);
+      return;
+    }
     await applyEdit(
-      () => engine.editParagraph(pageIndex, para.id, newText, color, ranges.length ? ranges : undefined),
+      () =>
+        engine.editParagraph(
+          pageIndex,
+          para.id,
+          newText,
+          color,
+          ranges.length ? ranges : undefined,
+          moved ? { dx: movedDx, dy: movedDy } : undefined,
+        ),
       pageIndex,
     );
   };
@@ -240,7 +303,7 @@ export function beginParagraphEdit(pageIndex: number, para: ParagraphView): void
   });
   ed.addEventListener('blur', () => void commit());
 
-  ui.wrap.append(ed, hint, colorRow.row, delBtn);
+  ui.wrap.append(ed, hint, colorRow.row, delBtn, moveBtn);
   autosize();
   ed.focus();
   const sel = window.getSelection();
