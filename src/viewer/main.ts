@@ -18,6 +18,13 @@ import { offerRestoreIfAny } from './dialogs';
 
 $<HTMLButtonElement>('btn-choose').addEventListener('click', () => void openViaPicker());
 
+// like PDF Mana, the whole dashed box is one big "open a file" button; inner
+// buttons/links (choose, sample, auto-open opt-in) keep their own actions
+$<HTMLDivElement>('drop-card').addEventListener('click', (e) => {
+  if (e.target instanceof Element && e.target.closest('button, a, input')) return;
+  void openViaPicker();
+});
+
 const sampleBtn = $<HTMLButtonElement>('btn-sample');
 sampleBtn.addEventListener('click', async () => {
   sampleBtn.disabled = true;

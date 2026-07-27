@@ -79,6 +79,7 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 
 - [ ] Header shows the PDF Edna wordmark + tagline; status pill reads "Nothing open yet" empty / "name · N pages" with a green dot when loaded
 - [ ] Empty state: floating page-card cluster animates; "Try a sample" loads the bundled sample; dropping a non-PDF shows an inline message in the drop zone (no dialog)
+- [ ] Empty state: the dashed box fills most of the window (~80%) and clicking anywhere inside it opens the file picker; the Choose/sample buttons inside still do their own thing (no double picker)
 - [ ] "?" button cycles through different tips in the toast
 - [ ] Zoom in/out re-renders pages and overlays stay aligned; ⌘/Ctrl +/−/0 and ⌘/Ctrl O/S/Z/⇧Z shortcuts work
 - [ ] Fit width fills the window width; Fit page shows the whole page; overlays stay aligned after both

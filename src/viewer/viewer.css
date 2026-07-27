@@ -488,6 +488,9 @@ button:disabled {
 /* ---------- empty state ---------- */
 
 #dropzone {
+  /* main centers its children, which would shrink-wrap the zone — stretch it
+     so the drop card's 80% means 80% of the WINDOW, like PDF Mana */
+  width: 100%;
   min-height: calc(100vh - 220px);
   display: flex;
   flex-direction: column;
@@ -497,24 +500,34 @@ button:disabled {
   padding: 20px 0;
 }
 
+/* One big "open a file" button, sized like PDF Mana's drop zone: 80% wide,
+   filling most of the height under the header (min 340px). */
 #drop-card {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 24px;
-  width: min(660px, calc(100vw - 40px));
+  width: 80%;
+  flex: 1;
+  min-height: 340px;
   padding: 40px 44px 44px;
-  border-radius: 32px;
-  border: 3px dashed var(--dash);
+  border-radius: 28px;
+  border: 4px dashed var(--dash);
   background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
   transition:
     background 120ms ease,
     border-color 120ms ease;
 }
 
+#drop-card:hover {
+  background: var(--surface-warm);
+}
+
 #dropzone.drag-over #drop-card {
   background: var(--surface-warm);
-  border: 3px solid var(--blue);
+  border: 4px solid var(--blue);
 }
 
 #page-cluster {
@@ -1075,15 +1088,17 @@ button:disabled {
 /* ---------- responsive ---------- */
 
 @media (max-width: 1080px) {
-  #brand-sub {
-    display: none;
-  }
   #wordmark {
     min-width: 0;
   }
 }
 
 @media (max-width: 760px) {
+  /* the tagline is short enough for any desktop window — hide it only on
+     genuinely tiny viewports */
+  #brand-sub {
+    display: none;
+  }
   #capability-cards {
     flex-direction: column;
     align-items: stretch;
