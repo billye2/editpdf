@@ -24,13 +24,15 @@ Chrome Web Store upload into gitignored `release/`, commits, tags, pushes.
   the guard the heuristic detector would fuse the blocks on the next
   generation and a later edit would re-encode both texts as one. Text over
   images is still allowed. The check lives twice, deliberately: the viewer
-  (`moveWouldOverlap` in util.ts, used by drag.ts's `validate`) refuses the
-  drop instantly and keeps the box FLOATING at the drop spot (amber dashed;
-  drag on to an empty area, or Esc puts it back — refused drops accumulate
-  the offset), and the engine (`overlapsOtherText` in document.ts, guarding
-  `moveParagraph` and `editParagraph`'s offset before the undo snapshot) is
-  the backstop for the ✥-handle path and stale views. Keep the two margins
-  identical. Because the bare
+  (`moveWouldOverlap` in util.ts, used by drag.ts's `validate` AND by the
+  ✥-handle commit in editors.ts) refuses instantly and keeps things
+  FLOATING at the drop spot — the drag box gets an amber dash plus an
+  anchored `.overlap-warn` bubble (a corner toast alone was missed), the
+  edit session stays open with the user's text; drag on to an empty area,
+  or Esc puts it back (refused drops accumulate the offset). The engine
+  (`overlapsOtherText` in document.ts, guarding `moveParagraph` and
+  `editParagraph`'s offset before the undo snapshot) is the backstop for
+  stale views. Keep the two margins identical. Because the bare
   drag gesture is not discoverable, the edit box also carries a **✥ move
   handle** (next to the ✕): press-and-drag moves the whole edit surface,
   deltas accumulate across drags, and commit routes unchanged text through

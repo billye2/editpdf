@@ -31,6 +31,7 @@ export function wireDragToMove(
   const putBack = () => {
     baseCssX = baseCssY = basePdfX = basePdfY = 0;
     box.classList.remove('dragging', 'floating');
+    box.querySelector('.overlap-warn')?.remove();
     box.style.transform = '';
     if (floating?.box === box) floating = null;
   };
@@ -91,13 +92,20 @@ export function wireDragToMove(
         return;
       }
       if (h.validate && !h.validate(dx, dy)) {
-        // refuse the drop but keep the box parked where it was dropped
+        // refuse the drop but keep the box parked where it was dropped, with
+        // a warning bubble anchored to it (a corner toast alone gets missed)
         baseCssX += ev.clientX - x0;
         baseCssY += ev.clientY - y0;
         basePdfX = dx;
         basePdfY = dy;
         box.style.transform = `translate(${baseCssX}px, ${baseCssY}px)`;
         box.classList.add('floating');
+        if (!box.querySelector('.overlap-warn')) {
+          const warn = document.createElement('div');
+          warn.className = 'overlap-warn';
+          warn.textContent = 'Overlaps other text — drop it somewhere empty, or press Esc to put it back';
+          box.append(warn);
+        }
         floating = { box, cancel: putBack };
         toast('That spot overlaps other text — drag it to an empty area, or press Esc to put it back.', 'warn', 6000);
         return;

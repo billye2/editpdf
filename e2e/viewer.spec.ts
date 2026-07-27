@@ -183,8 +183,10 @@ test('overlapping drop warns and keeps the box floating; Esc puts it back', asyn
   const toast = page.locator('#toast');
   await expect(toast).toBeVisible();
   await expect(toast).toContainText('overlaps other text');
-  // the box stays FLOATING at the drop spot, not snapped back
+  // the box stays FLOATING at the drop spot with an anchored warning bubble
   await expect(boxes.nth(3)).toHaveClass(/floating/);
+  await expect(page.locator('.overlap-warn')).toBeVisible();
+  await expect(page.locator('.overlap-warn')).toContainText('press Esc');
   const parked = (await boxes.nth(3).boundingBox())!;
   expect(Math.abs(parked.y - from.y)).toBeGreaterThan(10);
 

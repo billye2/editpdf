@@ -3,7 +3,8 @@
 
 import type { ParagraphView, OcrWordView, RGB, Rect, ColorRange } from '../shared/types';
 import { engine } from './engine';
-import { rectToCss, cssPx, rgbToHex, hexToRgb, sameRgb, cssColorToRgb } from './util';
+import { toast } from './ui';
+import { rectToCss, cssPx, rgbToHex, hexToRgb, sameRgb, cssColorToRgb, moveWouldOverlap } from './util';
 import { pageUIs, applyEdit } from './state';
 
 /** Swatch row + custom picker. Returns the row element and a getter for the
@@ -270,8 +271,16 @@ export function beginParagraphEdit(pageIndex: number, para: ParagraphView): void
     if (done) return;
     const { text: newText, ranges } = serializeRich(ed, baseColor);
     const color = baseChosen ?? undefined;
-    cleanup();
     const moved = Math.hypot(movedDx, movedDy) >= 0.01;
+    if (moved && moveWouldOverlap(pageUIs[pageIndex].view?.paragraphs ?? [], para, movedDx, movedDy)) {
+      // refuse the destination but KEEP the edit session (and the user's
+      // text) alive at its floating position — reverting silently on commit
+      // read as "the fix didn't work"
+      toast('That spot overlaps other text — drag ✥ to an empty area, or press Esc to cancel.', 'warn', 6000);
+      ed.focus();
+      return;
+    }
+    cleanup();
     const changed = newText.trim() !== para.text.trim() || !!color || ranges.length > 0;
     if (!changed && !moved) return;
     if (!changed && moved) {
