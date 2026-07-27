@@ -137,14 +137,14 @@ function photoPng() {
   };
 
   const footer = (page, n) => {
-    page.drawText('Meridian Analytics · Q2 2026 Review · Confidential', { x: 72, y: 46, size: 8.5, font, color: gray });
+    page.drawText('Lifemana Store · Q2 2026 Review · Confidential', { x: 72, y: 46, size: 8.5, font, color: gray });
     page.drawText(`Page ${n} of 2`, { x: 493, y: 46, size: 8.5, font, color: gray });
   };
 
   // ----- page 1 -----
   const p1 = doc.addPage([612, 792]);
   p1.drawImage(logo, { x: 72, y: 706, width: 40, height: 40 });
-  p1.drawText('Meridian Analytics', { x: 124, y: 728, size: 16, font: bold, color: ink });
+  p1.drawText('Lifemana Store', { x: 124, y: 728, size: 16, font: bold, color: ink });
   p1.drawText('Insight for mid-market retail', { x: 124, y: 711, size: 9.5, font, color: gray });
   p1.drawRectangle({ x: 72, y: 692, width: 468, height: 1.5, color: ruleColor });
 
@@ -154,7 +154,7 @@ function photoPng() {
   let y = drawPara(
     p1,
     [
-      'Meridian Analytics helps mid-market retailers turn raw transaction data',
+      'Lifemana Store helps mid-market retailers turn raw transaction data',
       'into clear, confident decisions. This review summarizes our second',
       'quarter: what we shipped, where revenue landed, and what we are',
       'watching as we head into the back half of the year.',
