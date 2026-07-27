@@ -131,6 +131,8 @@ const HELP_TIPS = [
   'Tip: select some text in the edit box first to color just those words.',
   'Tip: on scanned PDFs, click a highlighted word to patch-fix it in place.',
   'Tip: drag an image to move it; click it, then press Delete to remove it.',
+  'Tip: while editing, hold and drag the ✥ handle to move the paragraph — spacing and fonts stay exactly as they were.',
+  'Tip: paragraphs can be dragged to a new spot directly — press, drag past a few pixels, and drop.',
   'Tip: the ✕ at an edit box corner deletes the whole paragraph.',
   'Tip: Save PDF never overwrites your original — it always writes a new file.',
   'Tip: drop a PDF anywhere on the page to open it.',
