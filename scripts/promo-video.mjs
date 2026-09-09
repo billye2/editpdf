@@ -152,7 +152,7 @@ async function main() {
     await page.goto(`${BASE}/viewer.html`);
     await overlays();
     await page.evaluate(() =>
-      window.__promo.card('PDF Edna', 'Edit PDF Text, Fix Typos, Color and Move Text', [
+      window.__promo.card('PDF Edna', 'Edit PDF Text, Fix Typos, Move Any Text', [
         'A Chrome extension that edits the actual text of your PDFs',
       ]),
     );
@@ -242,7 +242,7 @@ async function main() {
 
     // Scene 6 — end card
     await page.evaluate(() =>
-      window.__promo.card('PDF Edna', 'Edit PDF Text, Fix Typos, Color and Move Text', [
+      window.__promo.card('PDF Edna', 'Edit PDF Text, Fix Typos, Move Any Text', [
         'Free · Private · Everything stays on your device',
         'Get it for Chrome',
       ]),
