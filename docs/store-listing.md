@@ -3,6 +3,12 @@
 Paste-ready copy for the developer dashboard. Keep in sync with
 `public/manifest.json` and `PRIVACY.md`.
 
+**Status: v1.7.1 submitted for review 2026-07-26** (first submission; zip +
+listing + compliance forms posted). When approved, record the store URL and
+item ID here. Later versions: `npm run release`, then upload the new
+`release/editpdf-v<X.Y.Z>.zip` under Package in the dashboard — the store
+rejects re-uploads of an existing version, so always release first.
+
 ## Description
 
 The store's description field is PLAIN TEXT (no markdown/HTML). Copy the
@@ -59,7 +65,9 @@ Your files never leave your computer. PDF Edna has no servers, no accounts, no a
   five-scene text-editing tour (edit two paragraphs, recolor + center the
   title, delete two paragraphs + double undo,
   `release/promo/pdf-edna-promo-2.webm`, ~42 s). The dashboard's video
-  field takes a YouTube URL — upload the webm there first.
+  field takes a YouTube URL, not a file.
+  **Uploaded 2026-07-26:** https://www.youtube.com/watch?v=jIm_JhldPbQ —
+  paste this into the dashboard's "Promotional video" field.
 
 ## Permission justifications
 
@@ -110,6 +118,12 @@ optional auto-open opt-in.
   crash-recovery snapshots and the user-controllable recent-files cache;
   localStorage for UI preferences. See `PRIVACY.md` for the inventory and
   how users clear each.
-- **Privacy policy URL:** required by the dashboard — PRIVACY.md needs a
-  public home first (the repo is private); host it (e.g. a public gist,
-  GitHub Pages, or making the repo public) and paste that URL.
+- **Privacy policy URL:** the v1.7.1 submission used
+  https://github.com/billye2/pdfxtn/blob/main/editpdf-PRIVACY.md (a copy in
+  the sibling repo, from when this repo was private). This repo is public
+  now, so on the next listing edit switch the dashboard to the canonical
+  https://github.com/billye2/editpdf/blob/main/PRIVACY.md and retire the
+  copy. Until then, **update both when PRIVACY.md changes.**
+- **Source link:** the repo is public under MIT — mention
+  https://github.com/billye2/editpdf in the listing description so users can
+  verify the no-network claim.

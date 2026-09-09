@@ -2,6 +2,11 @@
   "name": "editpdf",
   "private": true,
   "version": "1.7.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/billye2/editpdf.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

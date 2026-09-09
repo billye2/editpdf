@@ -11,7 +11,7 @@ genuinely nothing for it to do, and say so.
 Compare recent commits (`git log --oneline` since the last `Release v*` tag)
 against the docs and fix drift:
 
-- `docs/HANDOFF.md` — test count (`npx vitest run` total), architecture
+- `docs/HANDOFF.md` (gitignored, local-only maintainer notes) — test count (`npx vitest run` total), architecture
   diagram (new engine/viewer files), "What it does" bullets, invariants for
   any new hard-won gotcha. The version line points at package.json — keep it
   that way, never hardcode a version.

@@ -2,7 +2,7 @@
 
 A Chrome extension (Manifest V3) that edits the **actual text** of a PDF — including scanned PDFs that have an OCR text layer — entirely client-side. When an edit changes text length (e.g. 3 characters replace 1), the paragraph **reflows** inside its original bounding box. (Internal identifiers and the repo keep the original working name `editpdf`.)
 
-Maintainers: start with **[docs/HANDOFF.md](docs/HANDOFF.md)** — architecture, invariants, and release process.
+Source: https://github.com/billye2/editpdf · Privacy: [PRIVACY.md](PRIVACY.md) · Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## How it works
 
@@ -71,3 +71,10 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - RTL, CJK, and complex shaping are out of scope; characters not present in the document's fonts or the bundled fallback faces are rejected.
 - Image-only scans (no OCR layer) are view-only — the viewer shows a notice.
 - MV3 URL interception is best-effort (PDFs served without a `.pdf` extension may open in Chrome's native viewer); the file picker path always works.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Bundled dependencies and fonts are listed with
+their licenses in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The name
+**PDF Edna**, the icons, and the promo assets are not part of the MIT grant;
+forks must ship under a different name and icon.

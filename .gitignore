@@ -15,3 +15,6 @@ test/*.pdf
 # playwright
 test-results/
 playwright-report/
+
+# maintainer working notes — kept local, never published
+docs/HANDOFF.md
