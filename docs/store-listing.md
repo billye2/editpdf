@@ -118,12 +118,11 @@ optional auto-open opt-in.
   crash-recovery snapshots and the user-controllable recent-files cache;
   localStorage for UI preferences. See `PRIVACY.md` for the inventory and
   how users clear each.
-- **Privacy policy URL:** the v1.7.1 submission used
-  https://github.com/billye2/pdfxtn/blob/main/editpdf-PRIVACY.md (a copy in
-  the sibling repo, from when this repo was private). This repo is public
-  now, so on the next listing edit switch the dashboard to the canonical
-  https://github.com/billye2/editpdf/blob/main/PRIVACY.md and retire the
-  copy. Until then, **update both when PRIVACY.md changes.**
+- **Privacy policy URL:**
+  https://github.com/billye2/editpdf/blob/main/PRIVACY.md (canonical, this
+  repo is public). The v1.7.1 submission was filed with a copy at
+  https://github.com/billye2/pdfxtn/blob/main/editpdf-PRIVACY.md — replace
+  it in the dashboard with the URL above, then delete the copy.
 - **Source link:** the repo is public under MIT — mention
   https://github.com/billye2/editpdf in the listing description so users can
   verify the no-network claim.
