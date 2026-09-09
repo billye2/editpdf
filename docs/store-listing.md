@@ -4,9 +4,11 @@ Paste-ready copy for the developer dashboard. Keep in sync with
 `public/manifest.json` and `PRIVACY.md`.
 
 **Status: v1.7.1 submitted for review 2026-07-26** (first submission; zip +
-listing + compliance forms posted). **v1.7.2 released 2026-09-08** (new
-extension name + MIT source; upload `release/editpdf-v1.7.2.zip` once the
-v1.7.1 review resolves — a pending review can't be replaced). When approved, record the store URL and
+listing + compliance forms posted). **v1.7.3 released 2026-09-08** (auto-open
+removed so the manifest has no permissions, final extension name, MIT
+source; upload `release/editpdf-v1.7.3.zip` once the v1.7.1 review
+resolves — a pending review can't be replaced — and re-answer the
+permission questions: there are none now). When approved, record the store URL and
 item ID here. Later versions: `npm run release`, then upload the new
 `release/editpdf-v<X.Y.Z>.zip` under Package in the dashboard — the store
 rejects re-uploads of an existing version, so always release first.
