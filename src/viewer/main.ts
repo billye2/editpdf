@@ -1,8 +1,7 @@
 // Viewer entry point: imports wire the toolbar, dialogs, editors, and render
 // pipeline (each module attaches its own listeners at import time); this file
 // keeps only what's left — the empty-state actions, window-level drag & drop,
-// the optional auto-open permission opt-in, and boot (?file= / session
-// restore).
+// and boot (session restore).
 //
 // Module map (imports point strictly left → right; state's re-render hooks
 // and the document-opened event keep it acyclic):
@@ -10,7 +9,7 @@
 //     → open-save → dialogs → toolbar → main
 
 import './toolbar';
-import { $, dropzone, dropError, banner, toast } from './ui';
+import { $, dropzone, dropError, toast } from './ui';
 import { openBytes, openViaPicker } from './open-save';
 import { offerRestoreIfAny } from './dialogs';
 
@@ -19,7 +18,7 @@ import { offerRestoreIfAny } from './dialogs';
 $<HTMLButtonElement>('btn-choose').addEventListener('click', () => void openViaPicker());
 
 // like PDF Mana, the whole dashed box is one big "open a file" button; inner
-// buttons/links (choose, sample, auto-open opt-in) keep their own actions
+// buttons/links (choose, sample) keep their own actions
 $<HTMLDivElement>('drop-card').addEventListener('click', (e) => {
   if (e.target instanceof Element && e.target.closest('button, a, input')) return;
   void openViaPicker();
@@ -81,63 +80,6 @@ document.addEventListener('drop', async (e) => {
   }
 });
 
-// ---------- optional auto-open permission ----------
-// The extension ships with no standing host permissions; redirecting .pdf
-// navigations into the viewer needs <all_urls>, offered here as an opt-in.
-
-const chromePerms = typeof chrome !== 'undefined' ? chrome.permissions : undefined;
-
-function offerAutoOpenOptIn(): void {
-  if (!chromePerms || !dropzone.isConnected) return;
-  void chromePerms
-    .contains({ origins: ['<all_urls>'] })
-    .then((granted) => {
-      if (granted || !dropzone.isConnected) return;
-      const p = document.createElement('p');
-      p.className = 'hint';
-      p.append('Want .pdf links to open here automatically? ');
-      const btn = document.createElement('button');
-      btn.className = 'autopen-btn';
-      btn.textContent = 'Enable auto-open';
-      btn.addEventListener('click', () => {
-        void chromePerms
-          .request({ origins: ['<all_urls>'] })
-          .then((ok) => {
-            if (ok) {
-              p.remove();
-              toast('Auto-open enabled — PDF links will now open in PDF Edna.', 'info', 5000);
-            }
-          })
-          .catch(() => {});
-      });
-      p.append(btn);
-      dropzone.querySelector('#drop-extra')?.append(p);
-    })
-    .catch(() => {});
-}
-offerAutoOpenOptIn();
-
 // ---------- boot ----------
-// ?file=<url> — used by the navigation-intercept redirect
 
-const fileParam = new URLSearchParams(location.search).get('file');
-if (!fileParam) {
-  offerRestoreIfAny();
-} else {
-  void (async () => {
-    try {
-      const resp = await fetch(fileParam);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const buf = new Uint8Array(await resp.arrayBuffer());
-      const name = decodeURIComponent(fileParam.split('/').pop() ?? 'document.pdf').split('?')[0];
-      await openBytes(buf, name);
-    } catch (e) {
-      let hint = '';
-      if (chromePerms) {
-        const granted = await chromePerms.contains({ origins: ['<all_urls>'] }).catch(() => false);
-        if (!granted) hint = ' PDF Edna may need the auto-open permission to fetch PDFs from websites.';
-      }
-      banner(`Could not fetch ${fileParam}: ${e instanceof Error ? e.message : String(e)}.${hint}`);
-    }
-  })();
-}
+offerRestoreIfAny();

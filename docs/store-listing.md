@@ -45,7 +45,7 @@ USE CASES
 
 PRIVATE BY DESIGN
 
-Your files never leave your computer. PDF Edna has no servers, no accounts, no analytics, and no tracking — all PDF reading and writing happens locally in your browser. It installs with no access to any website; auto-opening .pdf links is an optional, revocable opt-in.
+Your files never leave your computer. PDF Edna has no servers, no accounts, no analytics, and no tracking — all PDF reading and writing happens locally in your browser. It has no access to any website and never takes over your PDF links — Chrome's viewer stays your default; open PDF Edna from the toolbar when you want to edit.
 ```
 
 ## Assets
@@ -73,21 +73,11 @@ Your files never leave your computer. PDF Edna has no servers, no accounts, no a
 
 ## Permission justifications
 
-**`declarativeNetRequest`**
-Used solely to redirect top-frame navigations to `*.pdf` URLs into the
-extension's local viewer page, and only after the user opts in to auto-open.
-No request contents are read or modified; the single dynamic rule is a
-redirect on `^https?://.*\.pdf(\?.*)?$` main-frame navigations. The rule is
-removed whenever the optional host permission is revoked.
-
-**`<all_urls>` (optional host permission)**
-Requested at runtime, only when the user clicks "Enable auto-open" on the
-start screen. Required for two things: (1) declarativeNetRequest redirect
-actions need host access for the redirected URL, and PDF links can live on
-any origin — there is no narrower match pattern for "any URL ending in
-.pdf"; (2) fetching the user-navigated PDF into the viewer tab. The
-extension installs and is fully functional (file picker, drag-and-drop)
-without this permission.
+The manifest declares **no permissions and no host permissions** (v1.7.3+;
+the auto-open redirect and its `declarativeNetRequest` + optional
+`<all_urls>` grant were removed on 2026-09-08 — PDF Edna is an editor, not a
+replacement viewer). Only the toolbar `action` is used, which needs no
+justification field.
 
 ## Single purpose (required field)
 
@@ -99,9 +89,8 @@ without this permission.
 
 Select **"No, I am not using remote code."** All code and assets (the pdf.js
 worker, pdf-lib, fonts) are bundled in the package; the extension executes
-no remotely hosted or dynamically fetched code. The only network fetch is
-the PDF _data_ the user chooses to open (data, not code), and only after the
-optional auto-open opt-in.
+no remotely hosted or dynamically fetched code, and performs no network
+fetches at all.
 
 ## Data usage (privacy tab checkboxes)
 

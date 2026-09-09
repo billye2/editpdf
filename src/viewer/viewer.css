@@ -656,22 +656,6 @@ button:disabled {
   display: none;
 }
 
-.autopen-btn {
-  border: none;
-  border-radius: 999px;
-  height: 36px;
-  padding: 0 16px;
-  margin-left: 6px;
-  background: var(--blue);
-  color: #fff;
-  font: 800 13px var(--font-ui);
-  box-shadow: 0 2px 0 var(--blue-shadow);
-}
-
-.autopen-btn:hover {
-  filter: brightness(1.05);
-}
-
 #capability-cards {
   display: flex;
   gap: 14px;

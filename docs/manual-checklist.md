@@ -75,9 +75,8 @@ Run `npm run gen:samples && npm run build`, load `dist/` as an unpacked extensio
 - [ ] Save As after edits → no unload warning, no restore offer on next open
 - [ ] Previously opened files (thumbtack button next to Save PDF): opened files appear (thumbnail, page count, size); click reopens; pin survives eviction; Clear all empties; off-switch stops new entries
 - [ ] With unsaved edits, opening another PDF (drop, picker, thumbtack, sample) → confirm dialog; Cancel keeps the edited document, OK replaces it
-- [ ] Fresh install: no site access listed in chrome://extensions; .pdf URL navigation does NOT redirect
-- [ ] Click "Enable auto-open" on the start screen → permission prompt; after grant, .pdf URL navigation redirects into the viewer
-- [ ] Revoke site access in chrome://extensions → redirect stops (rule removed), extension still opens files via picker/drop
+- [ ] Fresh install: chrome://extensions shows no permissions and no site access; navigating to a .pdf URL opens Chrome's built-in viewer, never PDF Edna
+- [ ] Start screen shows no "Enable auto-open" offer; toolbar button opens the viewer in a new tab
 - [ ] Open a 60+ page PDF → first screen paints immediately; scrolling renders pages as they approach; zoom re-renders only visible pages
 
 ## General

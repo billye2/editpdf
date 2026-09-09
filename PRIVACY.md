@@ -3,16 +3,11 @@
 PDF Edna runs entirely in your browser. Your PDFs are never uploaded anywhere.
 
 - **No network use.** Parsing, editing, rendering, and saving all happen
-  locally. The extension makes no requests to any server. The only fetch it
-  can ever perform is downloading a `.pdf` URL _you_ navigated to, into the
-  local viewer — and only if you enabled auto-open (below).
+  locally. The extension makes no requests to any server.
 - **No telemetry, no analytics, no accounts.**
-- **No standing site access.** The extension installs with zero host
-  permissions. The optional "auto-open PDF links" feature requires the
-  `<all_urls>` host permission (Chrome has no narrower way to match "any URL
-  ending in .pdf"); it is requested only when you click **Enable auto-open**
-  on the start screen, and can be revoked any time at
-  `chrome://extensions` → PDF Edna → Site access.
+- **No site access.** The extension declares no host permissions and no
+  optional permissions, and it never intercepts `.pdf` links. It only opens
+  files you hand it via the toolbar button, file picker, or drag-and-drop.
 
 ## What is stored locally on your device
 

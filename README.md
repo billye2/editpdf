@@ -48,7 +48,7 @@ npm run release -- --dry-run  # run the checks, touch nothing
 
 ## Using it
 
-- **Open** a PDF (file picker, drag-and-drop, or `.pdf` URL interception).
+- **Open** a PDF (toolbar button, file picker, or drag-and-drop).
 - Hover shows paragraph outlines; **click a paragraph** to edit its text in place. `⌘/Ctrl+Enter` applies, `Esc` cancels. The paragraph reflows to fit. The edit box uses the document's real embedded font when the browser can render it, and grows with your text. The **✕** at the edit box corner deletes the whole paragraph. **Drag a paragraph** to move it (`Esc` mid-drag cancels) — the text keeps its exact spacing and fonts. While editing, press and drag the **✥** handle next to the ✕ to move the paragraph without leaving the editor; committing applies your text changes and the move together.
 - **Images**: hover shows purple outlines; **drag** an image to move it, **click** to select and delete it (✕ button or Delete key).
 - **Colors**: a swatch column appears beside the edit box. Pick with nothing selected to recolor the whole paragraph; **select text first to color just those words**. Existing mixed-color words keep their colors through edits.
@@ -57,7 +57,7 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - **Crash recovery**: edits are snapshotted locally (IndexedDB); if the tab closes before you save, the viewer offers to restore them on next open. Closing with unsaved edits also warns first.
 - **Previously opened files**: the thumbtack button next to Save PDF reopens recently used files (content-hashed cache, max 10 files / 100 MB, pinnable, with an off switch). Everything stays on your device — see `PRIVACY.md`.
 - The **?** button cycles through usage tips.
-- The extension installs with **no site access**; automatic opening of `.pdf` links is an explicit opt-in on the start screen and can be revoked in `chrome://extensions`.
+- The extension has **no site access** and never intercepts `.pdf` links — Chrome's built-in viewer stays your default. Open PDF Edna from the toolbar when you want to edit.
 - **Show boxes** (toolbar switch, persisted) outlines every detected text run (green = invisible OCR layer).
 
 ## Known limitations (v1)
@@ -70,7 +70,6 @@ npm run release -- --dry-run  # run the checks, touch nothing
 - The tagged-PDF structure tree is not updated (screen-reader desync on edited paragraphs).
 - RTL, CJK, and complex shaping are out of scope; characters not present in the document's fonts or the bundled fallback faces are rejected.
 - Image-only scans (no OCR layer) are view-only — the viewer shows a notice.
-- MV3 URL interception is best-effort (PDFs served without a `.pdf` extension may open in Chrome's native viewer); the file picker path always works.
 
 ## License
 
