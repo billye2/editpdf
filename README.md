@@ -44,7 +44,7 @@ npm run release -- --dry-run  # run the checks, touch nothing
 1. `npm run build`
 2. Open `chrome://extensions`, enable **Developer mode**
 3. **Load unpacked** → select the `dist/` folder
-4. Click the PDF Edna toolbar button (or navigate to any `.pdf` URL — navigation is redirected to the viewer, best-effort)
+4. Click the PDF Edna toolbar button to open the viewer, then drop a PDF on it or use the file picker
 
 ## Using it
 
