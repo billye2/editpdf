@@ -18,3 +18,5 @@ playwright-report/
 
 # maintainer working notes — kept local, never published
 docs/HANDOFF.md
+*.swp
+*.swo
