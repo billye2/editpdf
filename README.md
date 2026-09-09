@@ -1,4 +1,4 @@
-# PDF Edna — PDF Text Editing Made Easy
+# PDF Edna: Edit PDF Text, Fix Typos, Color and Move Text
 
 A Chrome extension (Manifest V3) that edits the **actual text** of a PDF — including scanned PDFs that have an OCR text layer — entirely client-side. When an edit changes text length (e.g. 3 characters replace 1), the paragraph **reflows** inside its original bounding box. (Internal identifiers and the repo keep the original working name `editpdf`.)
 

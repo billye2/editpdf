@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "PDF Edna – PDF Text Editing Made Easy",
+  "name": "PDF Edna: Edit PDF Text, Fix Typos, Color and Move Text",
   "version": "1.7.1",
   "description": "PDF text editing made easy — edit the actual text of PDFs, including OCR'd scans, entirely in your browser.",
   "icons": {
