@@ -119,10 +119,10 @@ optional auto-open opt-in.
   localStorage for UI preferences. See `PRIVACY.md` for the inventory and
   how users clear each.
 - **Privacy policy URL:**
-  https://github.com/billye2/editpdf/blob/main/PRIVACY.md (canonical, this
+  https://github.com/billye2/pdfedna/blob/main/PRIVACY.md (canonical, this
   repo is public). The v1.7.1 submission was filed with a copy at
   https://github.com/billye2/pdfxtn/blob/main/editpdf-PRIVACY.md — replace
   it in the dashboard with the URL above, then delete the copy.
 - **Source link:** the repo is public under MIT — mention
-  https://github.com/billye2/editpdf in the listing description so users can
+  https://github.com/billye2/pdfedna in the listing description so users can
   verify the no-network claim.

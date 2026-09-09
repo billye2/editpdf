@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/billye2/editpdf.git"
+    "url": "https://github.com/billye2/pdfedna.git"
   },
   "type": "module",
   "scripts": {
